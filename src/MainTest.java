@@ -11,6 +11,8 @@ public class MainTest {
 	private static int numCars = 4;
 	private static ShipmentPoint depotLocation;
 	private static List<ShipmentPoint> destLocations;
+	private static int populationSize = 1024;
+	private static int numGAIterations = 1000;
 	public static void main(String[] args) {
 		MainTest mt = new MainTest();
 		mt.doCalc(randomNumIterations);
@@ -43,8 +45,51 @@ public class MainTest {
 	}
 	
 	private void doGA() {
-		for (int i = 0; i < 1000; i++) {
+		// Set initial capacity to population size in order to do less resize
+		List<RoutePlan> population = new ArrayList<RoutePlan>(populationSize);
+		List<RoutePlan> tempPopulation = new ArrayList<RoutePlan>(populationSize * 8);
+		int globalMin = Integer.MAX_VALUE;
+
+		// First, initialize the population.
+		for (int i = 0; i < populationSize; i++) {
+			RoutePlan candidate = new RoutePlan();
+			candidate.randomBreaks();
+			population.add(candidate);
+		}
+
+		for (int i = 0; i < numGAIterations; i++) {
+			int[] insertionPoints = new int[2];
+			int firstInsertionPoint = new Random().nextInt(numDestinations);
+			int secondInsertionPoint = new Random().nextInt(numDestinations);
 			
+			while (firstInsertionPoint == secondInsertionPoint) {
+				secondInsertionPoint = new Random().nextInt(numDestinations);
+			}
+			
+			// Swap values if reverse
+			if (firstInsertionPoint > secondInsertionPoint) {
+				firstInsertionPoint = firstInsertionPoint ^ secondInsertionPoint;
+				secondInsertionPoint = firstInsertionPoint ^ secondInsertionPoint;
+				firstInsertionPoint = firstInsertionPoint ^ secondInsertionPoint;
+			}
+			RoutePlan curRP = population.get(i);
+			tempPopulation.add(curRP);
+			
+			// Flip
+			
+			// Swap
+			
+			// Slide
+			
+			// Modify breaks
+			
+			// Flip & Modify breaks
+			
+			// Swap & Modify breaks
+			
+			// Slide & Modify breaks
+			
+			// No-op
 		}
 	}
 	
