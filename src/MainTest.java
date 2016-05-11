@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -76,7 +77,11 @@ public class MainTest {
 			tempPopulation.add(curRP);
 			
 			// Flip
-			
+			ArrayList<ShipmentPoint> tempSPForFlipping = new ArrayList<ShipmentPoint>();
+			tempSPForFlipping.addAll(curRP.points);
+			for (int index = firstInsertionPoint; index <= secondInsertionPoint; i++) {
+				
+			}
 			// Swap
 			
 			// Slide
