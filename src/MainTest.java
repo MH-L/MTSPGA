@@ -1,5 +1,4 @@
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -26,7 +25,7 @@ public class MainTest {
 		int minCost = 1000000000;
 		long grandTotalCost = 0;
 		for (int i = 0; i < numIterations; i++) {
-			rp.randomBreaks();
+			rp.load();
 			if (rp.getTotalCost() < minCost) {
 				minCost = rp.getTotalCost();
 				optimalBreaks.clear();
@@ -49,17 +48,17 @@ public class MainTest {
 		// Set initial capacity to population size in order to do less resize
 		List<RoutePlan> population = new ArrayList<RoutePlan>(populationSize);
 		List<RoutePlan> tempPopulation = new ArrayList<RoutePlan>(populationSize * 8);
-		int globalMin = Integer.MAX_VALUE;
+		long globalMin = Long.MAX_VALUE;
 
 		// First, initialize the population.
 		for (int i = 0; i < populationSize; i++) {
 			RoutePlan candidate = new RoutePlan();
-			candidate.randomBreaks();
+			candidate.load();
 			population.add(candidate);
 		}
 
 		for (int i = 0; i < numGAIterations; i++) {
-			int[] insertionPoints = new int[2];
+			tempPopulation.clear();
 			int firstInsertionPoint = new Random().nextInt(numDestinations);
 			int secondInsertionPoint = new Random().nextInt(numDestinations);
 			
@@ -73,28 +72,110 @@ public class MainTest {
 				secondInsertionPoint = firstInsertionPoint ^ secondInsertionPoint;
 				firstInsertionPoint = firstInsertionPoint ^ secondInsertionPoint;
 			}
-			RoutePlan curRP = population.get(i);
-			tempPopulation.add(curRP);
 			
-			// Flip
-			ArrayList<ShipmentPoint> tempSPForFlipping = new ArrayList<ShipmentPoint>();
-			tempSPForFlipping.addAll(curRP.points);
-			for (int index = firstInsertionPoint; index <= secondInsertionPoint; i++) {
+			for (int popIndex = 0; popIndex < populationSize; popIndex++) {
+				RoutePlan curRP = population.get(popIndex);
+				List<ShipmentPoint> curPopSP = curRP.points;
+				List<Integer> curBreak = curRP.breaks;
+				tempPopulation.add(curRP);
 				
+				// Flip
+				ArrayList<ShipmentPoint> tempSPForFlipping = new ArrayList<ShipmentPoint>();
+				ArrayList<Integer> tempBreaksForFlipping = new ArrayList<Integer>();
+				tempSPForFlipping.addAll(curPopSP);
+				tempBreaksForFlipping.addAll(curBreak);
+				for (int index = firstInsertionPoint; index <= secondInsertionPoint; index++) {
+					tempSPForFlipping.set(firstInsertionPoint + 
+							secondInsertionPoint - index, curPopSP.get(index));
+				}
+				tempPopulation.add(new RoutePlan(tempSPForFlipping, tempBreaksForFlipping));
+				
+				// Swap
+				ArrayList<ShipmentPoint> tempSPForSwapping = new ArrayList<ShipmentPoint>();
+				ArrayList<Integer> tempBreaksForSwapping = new ArrayList<Integer>();
+				tempSPForSwapping.addAll(curPopSP);
+				tempBreaksForSwapping.addAll(curBreak);
+				tempSPForSwapping.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
+				tempSPForSwapping.set(secondInsertionPoint, curPopSP.get(firstInsertionPoint));
+				tempPopulation.add(new RoutePlan(tempSPForSwapping, tempBreaksForSwapping));
+				
+				// Slide
+				ArrayList<ShipmentPoint> tempSPForSliding = new ArrayList<ShipmentPoint>();
+				ArrayList<Integer> tempBreaksForSliding = new ArrayList<Integer>();
+				tempSPForSliding.addAll(curPopSP);
+				tempBreaksForSliding.addAll(curBreak);
+				for (int index = firstInsertionPoint + 1; index <= secondInsertionPoint; index++) {
+					tempSPForSliding.set(index, curPopSP.get(index - 1));
+				}
+				tempSPForSliding.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
+				tempPopulation.add(new RoutePlan(tempSPForSliding, tempBreaksForSliding));
+				
+				// Modify breaks
+				ArrayList<ShipmentPoint> tempSPForMB = new ArrayList<ShipmentPoint>();
+				tempSPForMB.addAll(curPopSP);
+				RoutePlan MBCandidate = new RoutePlan(tempSPForMB, new ArrayList<Integer>());
+				MBCandidate.randomBreaks();
+				tempPopulation.add(MBCandidate);
+				
+				// Flip & Modify breaks
+				tempSPForFlipping = new ArrayList<ShipmentPoint>();
+				tempBreaksForFlipping = new ArrayList<Integer>();
+				tempSPForFlipping.addAll(curPopSP);
+				tempBreaksForFlipping.addAll(curBreak);
+				for (int index = firstInsertionPoint; index <= secondInsertionPoint; index++) {
+					tempSPForFlipping.set(firstInsertionPoint + 
+							secondInsertionPoint - index, curPopSP.get(index));
+				}
+				MBCandidate = new RoutePlan(tempSPForFlipping, tempBreaksForFlipping);
+				MBCandidate.randomBreaks();
+				tempPopulation.add(MBCandidate);
+				
+				// Swap & Modify breaks
+				tempSPForSwapping = new ArrayList<ShipmentPoint>();
+				tempBreaksForSwapping = new ArrayList<Integer>();
+				tempSPForSwapping.addAll(curPopSP);
+				tempBreaksForSwapping.addAll(curBreak);
+				tempSPForSwapping.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
+				tempSPForSwapping.set(secondInsertionPoint, curPopSP.get(firstInsertionPoint));
+				MBCandidate = new RoutePlan(tempSPForSwapping, tempBreaksForSwapping);
+				MBCandidate.randomBreaks();
+				tempPopulation.add(MBCandidate);
+				
+				// Slide & Modify breaks
+				tempSPForSliding = new ArrayList<ShipmentPoint>();
+				tempBreaksForSliding = new ArrayList<Integer>();
+				tempSPForSliding.addAll(curPopSP);
+				tempBreaksForSliding.addAll(curBreak);
+				for (int index = firstInsertionPoint + 1; index <= secondInsertionPoint; index++) {
+					tempSPForSliding.set(index, curPopSP.get(index - 1));
+				}
+				tempSPForSliding.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
+				MBCandidate = new RoutePlan(tempSPForSliding, tempBreaksForSliding);
+				MBCandidate.randomBreaks();
+				tempPopulation.add(MBCandidate);
 			}
-			// Swap
 			
-			// Slide
+			Collections.shuffle(tempPopulation);
+			population.clear();
+			for (int split = 0; split < populationSize; split++) {
+				long curMinCost = Long.MAX_VALUE;
+				int curMinCostIndex = -1;
+				for (int subIndex = 0; subIndex < 8; subIndex++) {
+					int curCost = tempPopulation.get(split * 8 + subIndex).getTotalCost();
+					if (curCost < curMinCost) {
+						curMinCost = curCost;
+						curMinCostIndex = subIndex;
+					}
+				}
+				
+				if (curMinCost < globalMin) {
+					globalMin = curMinCost;
+				}
+				population.add(tempPopulation.get(split * 8 + curMinCostIndex));
+			}
 			
-			// Modify breaks
-			
-			// Flip & Modify breaks
-			
-			// Swap & Modify breaks
-			
-			// Slide & Modify breaks
-			
-			// No-op
+			System.out.println("Population Size is: " + population.size());
+			System.out.println("Global min is: " + globalMin);
 		}
 	}
 	
@@ -163,6 +244,15 @@ public class MainTest {
 		private List<ShipmentPoint> points = new ArrayList<ShipmentPoint>();
 		private List<Integer> breaks = new ArrayList<Integer>();
 		
+		public RoutePlan() {
+			
+		}
+
+		public RoutePlan(List<ShipmentPoint> points, List<Integer> breaks) {
+			this.points = points;
+			this.breaks = breaks;
+		}
+		
 		public int getTotalCost() {
 			Collections.sort(breaks);
 			int sum = 0;
@@ -179,7 +269,8 @@ public class MainTest {
 			return sum;
 		}
 		
-		private void randomBreaks() {
+		private void load() {
+			points.clear();
 			breaks.clear();
 			while (breaks.size() < numCars) {
 				int randBreak = 1 + new Random().nextInt(numDestinations - 1);
@@ -191,6 +282,17 @@ public class MainTest {
 			points.addAll(destLocations);
 			Collections.shuffle(points);
 		}
+		
+		private void randomBreaks() {
+			breaks.clear();
+			while (breaks.size() < numCars) {
+				int randBreak = 1 + new Random().nextInt(numDestinations - 1);
+				if (!breaks.contains(randBreak)) {
+					breaks.add(randBreak);
+				}
+			}
+		}
+		
 	}
 	
 	public class ShipmentPoint {
