@@ -12,17 +12,19 @@ public class MainTest {
 	private static ShipmentPoint depotLocation;
 	private static List<ShipmentPoint> destLocations;
 	private static int populationSize = 1024;
-	private static int numGAIterations = 1000;
+	private static int numGAIterations = 10000;
 	public static void main(String[] args) {
+		long systemCurrentTime = System.currentTimeMillis();
 		MainTest mt = new MainTest();
 		mt.doCalc(randomNumIterations);
+		System.out.println("Total running time is: " + (System.currentTimeMillis() - systemCurrentTime));
 	}
 	
 	public void doCalc(int numIterations) {
 		RoutePlan rp = new RoutePlan();
 		populateLocations();
 		List<Integer> optimalBreaks = new ArrayList<Integer>();
-		int minCost = 1000000000;
+		long minCost = 1000000000000000000L;
 		long grandTotalCost = 0;
 		for (int i = 0; i < numIterations; i++) {
 			rp.load();
@@ -181,7 +183,6 @@ public class MainTest {
 	
 	private void populateLocations() {
 		destLocations = new ArrayList<ShipmentPoint>();
-		destLocations.add(new ShipmentPoint(1,1));
 		Random rnd1 = new Random();
 		int depotxpos = rnd1.nextInt(mapBoundEast);
 		int depotypos = rnd1.nextInt(mapBoundNorth);
@@ -230,7 +231,15 @@ public class MainTest {
 						perm.get(j).xpos, perm.get(j).ypos));
 			}
 			System.out.println();
+			lastBreak = breaks.get(i);
 		}
+		
+		System.out.println(String.format("Route %s:", breaks.size()));
+		for (int i = lastBreak; i < perm.size(); i++) {
+			System.out.println(String.format("XPosition: %s, YPosition: %s",
+					perm.get(i).xpos, perm.get(i).ypos));
+		}
+		System.out.println();
 		System.out.println(String.format("Total Cost: %d", plan.getTotalCost()));
 		System.out.println();
 	}
