@@ -6,12 +6,12 @@ import java.util.Random;
 public class MainTest {
 	private static int mapBoundNorth = 200;
 	private static int mapBoundEast = 300;
-	private static int numDestinations = 10;
-	private static int randomNumIterations = 20;
+	private static int numDestinations = 1000;
+	private static int randomNumIterations = 2000;
 	private static int numCars = 4;
 	private static ShipmentPoint depotLocation;
 	private static List<ShipmentPoint> destLocations;
-	private static int populationSize = 1024;
+	private static int populationSize = 128;
 	private static int numGAIterations = 10000;
 	public static void main(String[] args) {
 		long systemCurrentTime = System.currentTimeMillis();
@@ -60,6 +60,7 @@ public class MainTest {
 		}
 
 		for (int i = 0; i < numGAIterations; i++) {
+			long iterationMin = Long.MAX_VALUE;
 			tempPopulation.clear();
 			int firstInsertionPoint = new Random().nextInt(numDestinations);
 			int secondInsertionPoint = new Random().nextInt(numDestinations);
@@ -173,10 +174,14 @@ public class MainTest {
 				if (curMinCost < globalMin) {
 					globalMin = curMinCost;
 				}
+				
+				if (curMinCost < iterationMin) {
+					iterationMin = curMinCost;
+				}
 				population.add(tempPopulation.get(split * 8 + curMinCostIndex));
+//				population.add(tempPopulation.get(new Random().nextInt(8)));
 			}
 			
-			System.out.println("Population Size is: " + population.size());
 			System.out.println("Global min is: " + globalMin);
 		}
 	}
@@ -275,6 +280,12 @@ public class MainTest {
 				lastBreak = breaks.get(i);
 			}
 			
+			sum += calcDist(points.get(lastBreak), depotLocation);
+			sum += calcDist(points.get(points.size() - 1), depotLocation);
+			for (int i = lastBreak; i < points.size(); i++) {
+				sum += calcDist(points.get(i), points.get(i - 1));
+			}
+			
 			return sum;
 		}
 		
@@ -301,7 +312,6 @@ public class MainTest {
 				}
 			}
 		}
-		
 	}
 	
 	public class ShipmentPoint {
