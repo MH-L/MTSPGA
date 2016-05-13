@@ -1,3 +1,4 @@
+package main;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -47,10 +48,15 @@ public class MainTest {
 	}
 	
 	public static void main(String[] args) throws InterruptedException {
+		Configuration cfg = Configuration.getInstance();
 		long systemCurrentTime = System.currentTimeMillis();
 		MainTest mt = new MainTest();
 		mt.doCalc(randomNumIterations);
 		System.out.println("Total running time is: " + (System.currentTimeMillis() - systemCurrentTime));
+	}
+	
+	private static void loadConfiguration(Configuration cfg) {
+		
 	}
 	
 	public void doCalc(int numIterations) throws InterruptedException {
