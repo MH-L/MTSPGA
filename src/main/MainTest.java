@@ -22,8 +22,10 @@ public class MainTest {
 	private static int numCars = 5;
 	private static ShipmentPoint depotLocation;
 	private static List<ShipmentPoint> destLocations;
+	private static boolean useVariableCars = false;
 	private static int carCost = 200;
 	private static boolean randomDepot = false;
+	private static boolean loadPointsFromFile = false;
 	
 	/**
 	 * Storage locations
@@ -61,12 +63,15 @@ public class MainTest {
 		populationSize = (int) (cfg.getValue("population_size") == null ? populationSize : cfg.getValue("population_size"));
 		numGAIterations = (int) (cfg.getValue("GA_iteration") == null ? numGAIterations : cfg.getValue("GA_iteration"));
 		numDestinations = (int) (cfg.getValue("num_destinations") == null ? numDestinations : cfg.getValue("num_destinations"));
-		randomDepot = (boolean) (cfg.getValue("random_depot") == null ? randomDepot : cfg.getValue("random_depot"));
+		randomDepot = cfg.getValue("random_depot") == null ? randomDepot : ((int) cfg.getValue("random_depot") == 1);
 		numCars = (int) (cfg.getValue("num_cars") == null ? numCars : cfg.getValue("num_cars"));
-		useMultithreading = (boolean) (cfg.getValue("use_multithreading") == null ? 
-				useMultithreading : cfg.getValue("use_multithreading"));
+		useMultithreading = cfg.getValue("use_multithreading") == null ? useMultithreading : (int) cfg.getValue("use_multithreading") == 1;
 		baseDir = (String) (cfg.getValue("base_dir_location") == null ? baseDir : cfg.getValue("base_dir_location"));
-		numGAIterations = (int) (cfg.getValue("GA_iteration") == null ? numGAIterations : cfg.getValue("GA_iteration"));
+		reportSuffix = (String) (cfg.getValue("report_suffix") == null ? reportSuffix : cfg.getValue("report_suffix"));
+		mapHeight = (int) (cfg.getValue("map_height") == null ? mapHeight : cfg.getValue("map_height"));
+		mapWidth = (int) (cfg.getValue("map_width") == null ? mapWidth : cfg.getValue("map_width"));
+		useVariableCars = cfg.getValue("use_variable_cars") == null ? useVariableCars : (int) cfg.getValue("use_variable_cars") == 1;
+		loadPointsFromFile = cfg.getValue("load_points_from_file") == null ? loadPointsFromFile : (int) cfg.getValue("load_points_from_file") == 1;
 	}
 	
 	public void doCalc(int numIterations) throws InterruptedException {

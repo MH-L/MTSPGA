@@ -1,0 +1,20 @@
+{
+	"GA_iteration": 1000,
+	"population_size": 1024,
+	"load_points_from_file": 0,
+	"points_file_name": "sample.txt",
+  "num_destinations": 100,
+  "use_variable_cars": 0,
+	"num_cars": 5,
+	"map_width": 3000,
+	"map_height": 2000,
+	"use_multithreading": 1,
+	"base_dir_location": "C:\\Users\\bml\\Desktop\\Algorithms\\MTSPGA\\",
+	"report_suffix": "\\Report",
+	"points_suffix": "\\Pointset",
+	"random_depot": 0,
+	"depot_location": {
+		"xpos": 12,
+		"ypos": 78
+	}
+}
