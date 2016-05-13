@@ -1,3 +1,10 @@
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -9,18 +16,19 @@ public class MainTest {
 	 */
 	private static int mapBoundNorth = 2000;
 	private static int mapBoundEast = 3000;
-	private static int numDestinations = 500;
+	private static int numDestinations = 100;
 	private static int randomNumIterations = 2000; // Irrelevant
-	private static int numCars = 100;
+	private static int numCars = 5;
 	private static ShipmentPoint depotLocation;
 	private static List<ShipmentPoint> destLocations;
+	private static int carCost = 200;
 	
 	/**
 	 * Storage locations
 	 */
-	private static String baseDir = "C:\\Users\\bml\\Desktop\\Algorithms\\MTSPGA";
-	private static String reportSuffix = "\\Report";
-	private static String pointsSuffix = "\\Pointset";
+	private static String baseDir = "C:\\Users\\bml\\Desktop\\Algorithms\\MTSPGA\\";
+	private static String reportSuffix = "Report\\";
+	private static String pointsSuffix = "Pointset\\";
 	
 	/**
 	 * Tunable parameters for algorithm
@@ -304,6 +312,19 @@ public class MainTest {
 		}
 	}
 	
+	public void loadPointsFromFile(String filename) throws IOException {
+		File infile = new File(filename);
+		BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(infile)));
+		String inline = "";
+		while ((inline = br.readLine()) != null) {
+			String[] latln = inline.split(" ");
+			assert latln.length == 2;
+			ShipmentPoint pt = new ShipmentPoint(Integer.parseInt(latln[0]), Integer.parseInt(latln[1]));
+			destLocations.add(pt);
+		}
+		br.close();
+	}
+	
 	private void populateLocations() {
 		destLocations = new ArrayList<ShipmentPoint>();
 		Random rnd1 = new Random();
@@ -322,6 +343,12 @@ public class MainTest {
 			
 			destLocations.add(candidate);
 		}
+		
+//		try {
+//			writePointsToFile(destLocations);
+//		} catch (FileNotFoundException e) {
+//			System.out.println("Unable to write points to file!");
+//		}
 	}
 	
 	public void visualize() {
@@ -340,8 +367,13 @@ public class MainTest {
 		}
 	}
 	
-	private static void writePointsToFile(List<ShipmentPoint> sp) {
-		
+	public static void writePointsToFile(List<ShipmentPoint> sp) throws FileNotFoundException {
+		long currentTime = System.currentTimeMillis();
+		PrintWriter pr = new PrintWriter(baseDir + pointsSuffix + currentTime + ".txt");
+		for (ShipmentPoint point : sp) {
+			pr.println(point.xpos + " " + point.ypos);
+		}
+		pr.close();
 	}
 	
 	public static void printRoutes(RoutePlan plan) {
