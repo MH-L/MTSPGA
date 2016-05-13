@@ -15,14 +15,15 @@ public class MainTest {
 	/**
 	 * Parameters by problem definition
 	 */
-	private static int mapBoundNorth = 2000;
-	private static int mapBoundEast = 3000;
+	private static int mapHeight = 2000;
+	private static int mapWidth = 3000;
 	private static int numDestinations = 100;
 	private static int randomNumIterations = 2000; // Irrelevant
 	private static int numCars = 5;
 	private static ShipmentPoint depotLocation;
 	private static List<ShipmentPoint> destLocations;
 	private static int carCost = 200;
+	private static boolean randomDepot = false;
 	
 	/**
 	 * Storage locations
@@ -49,6 +50,7 @@ public class MainTest {
 	
 	public static void main(String[] args) throws InterruptedException {
 		Configuration cfg = Configuration.getInstance();
+		loadConfiguration(cfg);
 		long systemCurrentTime = System.currentTimeMillis();
 		MainTest mt = new MainTest();
 		mt.doCalc(randomNumIterations);
@@ -56,7 +58,15 @@ public class MainTest {
 	}
 	
 	private static void loadConfiguration(Configuration cfg) {
-		
+		populationSize = (int) (cfg.getValue("population_size") == null ? populationSize : cfg.getValue("population_size"));
+		numGAIterations = (int) (cfg.getValue("GA_iteration") == null ? numGAIterations : cfg.getValue("GA_iteration"));
+		numDestinations = (int) (cfg.getValue("num_destinations") == null ? numDestinations : cfg.getValue("num_destinations"));
+		randomDepot = (boolean) (cfg.getValue("random_depot") == null ? randomDepot : cfg.getValue("random_depot"));
+		numCars = (int) (cfg.getValue("num_cars") == null ? numCars : cfg.getValue("num_cars"));
+		useMultithreading = (boolean) (cfg.getValue("use_multithreading") == null ? 
+				useMultithreading : cfg.getValue("use_multithreading"));
+		baseDir = (String) (cfg.getValue("base_dir_location") == null ? baseDir : cfg.getValue("base_dir_location"));
+		numGAIterations = (int) (cfg.getValue("GA_iteration") == null ? numGAIterations : cfg.getValue("GA_iteration"));
 	}
 	
 	public void doCalc(int numIterations) throws InterruptedException {
@@ -334,16 +344,16 @@ public class MainTest {
 	private void populateLocations() {
 		destLocations = new ArrayList<ShipmentPoint>();
 		Random rnd1 = new Random();
-		int depotxpos = rnd1.nextInt(mapBoundEast);
-		int depotypos = rnd1.nextInt(mapBoundNorth);
+		int depotxpos = rnd1.nextInt(mapWidth);
+		int depotypos = rnd1.nextInt(mapHeight);
 		depotLocation = new ShipmentPoint(depotxpos, depotypos);
 
 		for (int i = 0; i < numDestinations; i++) {
 			ShipmentPoint candidate;
 			do {
 				Random rnd = new Random();
-				int xpos = rnd.nextInt(mapBoundEast);
-				int ypos = rnd.nextInt(mapBoundNorth);
+				int xpos = rnd.nextInt(mapWidth);
+				int ypos = rnd.nextInt(mapHeight);
 				candidate = new ShipmentPoint(xpos, ypos);
 			} while (destLocations.contains(candidate) || candidate.equals(depotLocation));
 			
@@ -358,8 +368,8 @@ public class MainTest {
 	}
 	
 	public void visualize() {
-		for (int xindex = 0; xindex < mapBoundEast; xindex++) {
-			for (int yindex = 0; yindex < mapBoundNorth; yindex++) {
+		for (int xindex = 0; xindex < mapWidth; xindex++) {
+			for (int yindex = 0; yindex < mapHeight; yindex++) {
 				ShipmentPoint pt = new ShipmentPoint(xindex, yindex);
 				if (destLocations.contains(pt)) {
 					System.out.print('E');

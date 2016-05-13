@@ -4,15 +4,14 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.HashMap;
-import java.util.Map;
+
+import org.json.JSONObject;
 
 public class Configuration {
 	private static Configuration instance;
-	public Map<String, Object> confMapping;
+	private JSONObject confMapping;
 	
 	private Configuration() {
-		confMapping = new HashMap<String, Object>();
 		configure();
 	}
 	
@@ -37,6 +36,14 @@ public class Configuration {
 			e.printStackTrace();
 		}
 		
-		System.out.println(totalLines);
+		// Parse json
+		confMapping = new JSONObject(totalLines);
+		for (String key : confMapping.keySet()) {
+			System.out.println(key);
+		}
+	}
+	
+	public Object getValue(String key) {
+		return confMapping.get(key);
 	}
 }
