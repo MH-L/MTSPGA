@@ -4,23 +4,48 @@ import java.util.List;
 import java.util.Random;
 
 public class MainTest {
-	private static int mapBoundNorth = 200;
-	private static int mapBoundEast = 300;
-	private static int numDestinations = 1000;
-	private static int randomNumIterations = 2000;
-	private static int numCars = 4;
+	/**
+	 * Parameters by problem definition
+	 */
+	private static int mapBoundNorth = 2000;
+	private static int mapBoundEast = 3000;
+	private static int numDestinations = 500;
+	private static int randomNumIterations = 2000; // Irrelevant
+	private static int numCars = 100;
 	private static ShipmentPoint depotLocation;
 	private static List<ShipmentPoint> destLocations;
-	private static int populationSize = 128;
-	private static int numGAIterations = 10000;
-	public static void main(String[] args) {
+	
+	/**
+	 * Storage locations
+	 */
+	private static String baseDir = "C:\\Users\\bml\\Desktop\\Algorithms\\MTSPGA";
+	private static String reportSuffix = "\\Report";
+	private static String pointsSuffix = "\\Pointset";
+	
+	/**
+	 * Tunable parameters for algorithm
+	 */
+	private static int populationSize = 10;
+	private static int numGAIterations = 1000000;
+	private static int methodCount = 8;
+	private static boolean useMultithreading = false;
+	private static SelectionStrategy ss = SelectionStrategy.GROUP_AND_MAX;
+	
+	enum SelectionStrategy {
+		GROUP_AND_MAX,  // group population and select max of each group
+		GROUP_AND_RANDOM,  // group population and select a random instance (better
+						   // ones have greater chance to be chosen
+		SORT_AND_SHUFFLE,  // sort population, shuffle and take the first ones
+	}
+	
+	public static void main(String[] args) throws InterruptedException {
 		long systemCurrentTime = System.currentTimeMillis();
 		MainTest mt = new MainTest();
 		mt.doCalc(randomNumIterations);
 		System.out.println("Total running time is: " + (System.currentTimeMillis() - systemCurrentTime));
 	}
 	
-	public void doCalc(int numIterations) {
+	public void doCalc(int numIterations) throws InterruptedException {
 		RoutePlan rp = new RoutePlan();
 		populateLocations();
 		List<Integer> optimalBreaks = new ArrayList<Integer>();
@@ -46,10 +71,10 @@ public class MainTest {
 		doGA();
 	}
 	
-	private void doGA() {
+	private void doGA() throws InterruptedException {
 		// Set initial capacity to population size in order to do less resize
-		List<RoutePlan> population = new ArrayList<RoutePlan>(populationSize);
-		List<RoutePlan> tempPopulation = new ArrayList<RoutePlan>(populationSize * 8);
+		final List<RoutePlan> population = new ArrayList<RoutePlan>(populationSize);
+		final List<RoutePlan> tempPopulation = new ArrayList<RoutePlan>(populationSize * methodCount);
 		long globalMin = Long.MAX_VALUE;
 
 		// First, initialize the population.
@@ -62,109 +87,203 @@ public class MainTest {
 		for (int i = 0; i < numGAIterations; i++) {
 			long iterationMin = Long.MAX_VALUE;
 			tempPopulation.clear();
-			int firstInsertionPoint = new Random().nextInt(numDestinations);
-			int secondInsertionPoint = new Random().nextInt(numDestinations);
+			int firstInsertionPointInit = new Random().nextInt(numDestinations);
+			int secondInsertionPointInit = new Random().nextInt(numDestinations);
 			
-			while (firstInsertionPoint == secondInsertionPoint) {
-				secondInsertionPoint = new Random().nextInt(numDestinations);
+			while (firstInsertionPointInit == secondInsertionPointInit) {
+				secondInsertionPointInit = new Random().nextInt(numDestinations);
 			}
 			
 			// Swap values if reverse
-			if (firstInsertionPoint > secondInsertionPoint) {
-				firstInsertionPoint = firstInsertionPoint ^ secondInsertionPoint;
-				secondInsertionPoint = firstInsertionPoint ^ secondInsertionPoint;
-				firstInsertionPoint = firstInsertionPoint ^ secondInsertionPoint;
+			if (firstInsertionPointInit > secondInsertionPointInit) {
+				firstInsertionPointInit = firstInsertionPointInit ^ secondInsertionPointInit;
+				secondInsertionPointInit = firstInsertionPointInit ^ secondInsertionPointInit;
+				firstInsertionPointInit = firstInsertionPointInit ^ secondInsertionPointInit;
 			}
 			
-			for (int popIndex = 0; popIndex < populationSize; popIndex++) {
-				RoutePlan curRP = population.get(popIndex);
-				List<ShipmentPoint> curPopSP = curRP.points;
-				List<Integer> curBreak = curRP.breaks;
-				tempPopulation.add(curRP);
+			final int firstInsertionPoint = firstInsertionPointInit;
+			final int secondInsertionPoint = secondInsertionPointInit;
 				
-				// Flip
-				ArrayList<ShipmentPoint> tempSPForFlipping = new ArrayList<ShipmentPoint>();
-				ArrayList<Integer> tempBreaksForFlipping = new ArrayList<Integer>();
-				tempSPForFlipping.addAll(curPopSP);
-				tempBreaksForFlipping.addAll(curBreak);
-				for (int index = firstInsertionPoint; index <= secondInsertionPoint; index++) {
-					tempSPForFlipping.set(firstInsertionPoint + 
-							secondInsertionPoint - index, curPopSP.get(index));
+			// Whether or not to add more methods for alteration
+			
+			Thread t1 = new Thread(new Runnable() {
+				
+				@Override
+				public void run() {
+					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
+						RoutePlan curRP = population.get(popIndex);
+						final List<ShipmentPoint> curPopSP = curRP.points;
+						final List<Integer> curBreak = curRP.breaks;
+						tempPopulation.add(curRP);
+						// Flip
+						ArrayList<ShipmentPoint> tempSPForFlipping = new ArrayList<ShipmentPoint>();
+						ArrayList<Integer> tempBreaksForFlipping = new ArrayList<Integer>();
+						tempSPForFlipping.addAll(curPopSP);
+						tempBreaksForFlipping.addAll(curBreak);
+						for (int index = firstInsertionPoint; index <= secondInsertionPoint; index++) {
+							tempSPForFlipping.set(firstInsertionPoint + 
+									secondInsertionPoint - index, curPopSP.get(index));
+						}
+						tempPopulation.add(new RoutePlan(tempSPForFlipping, tempBreaksForFlipping));
+					}
 				}
-				tempPopulation.add(new RoutePlan(tempSPForFlipping, tempBreaksForFlipping));
+			});
 				
-				// Swap
-				ArrayList<ShipmentPoint> tempSPForSwapping = new ArrayList<ShipmentPoint>();
-				ArrayList<Integer> tempBreaksForSwapping = new ArrayList<Integer>();
-				tempSPForSwapping.addAll(curPopSP);
-				tempBreaksForSwapping.addAll(curBreak);
-				tempSPForSwapping.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
-				tempSPForSwapping.set(secondInsertionPoint, curPopSP.get(firstInsertionPoint));
-				tempPopulation.add(new RoutePlan(tempSPForSwapping, tempBreaksForSwapping));
+			Thread t2 = new Thread(new Runnable() {
 				
-				// Slide
-				ArrayList<ShipmentPoint> tempSPForSliding = new ArrayList<ShipmentPoint>();
-				ArrayList<Integer> tempBreaksForSliding = new ArrayList<Integer>();
-				tempSPForSliding.addAll(curPopSP);
-				tempBreaksForSliding.addAll(curBreak);
-				for (int index = firstInsertionPoint + 1; index <= secondInsertionPoint; index++) {
-					tempSPForSliding.set(index, curPopSP.get(index - 1));
+				@Override
+				public void run() {
+					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
+						RoutePlan curRP = population.get(popIndex);
+						final List<ShipmentPoint> curPopSP = curRP.points;
+						final List<Integer> curBreak = curRP.breaks;
+						tempPopulation.add(curRP);
+						// Swap
+						ArrayList<ShipmentPoint> tempSPForSwapping = new ArrayList<ShipmentPoint>();
+						ArrayList<Integer> tempBreaksForSwapping = new ArrayList<Integer>();
+						tempSPForSwapping.addAll(curPopSP);
+						tempBreaksForSwapping.addAll(curBreak);
+						tempSPForSwapping.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
+						tempSPForSwapping.set(secondInsertionPoint, curPopSP.get(firstInsertionPoint));
+						tempPopulation.add(new RoutePlan(tempSPForSwapping, tempBreaksForSwapping));
+					}
 				}
-				tempSPForSliding.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
-				tempPopulation.add(new RoutePlan(tempSPForSliding, tempBreaksForSliding));
+			});
 				
-				// Modify breaks
-				ArrayList<ShipmentPoint> tempSPForMB = new ArrayList<ShipmentPoint>();
-				tempSPForMB.addAll(curPopSP);
-				RoutePlan MBCandidate = new RoutePlan(tempSPForMB, new ArrayList<Integer>());
-				MBCandidate.randomBreaks();
-				tempPopulation.add(MBCandidate);
+			Thread t3 = new Thread(new Runnable() {
 				
-				// Flip & Modify breaks
-				tempSPForFlipping = new ArrayList<ShipmentPoint>();
-				tempBreaksForFlipping = new ArrayList<Integer>();
-				tempSPForFlipping.addAll(curPopSP);
-				tempBreaksForFlipping.addAll(curBreak);
-				for (int index = firstInsertionPoint; index <= secondInsertionPoint; index++) {
-					tempSPForFlipping.set(firstInsertionPoint + 
-							secondInsertionPoint - index, curPopSP.get(index));
+				@Override
+				public void run() {
+					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
+						RoutePlan curRP = population.get(popIndex);
+						final List<ShipmentPoint> curPopSP = curRP.points;
+						final List<Integer> curBreak = curRP.breaks;
+						tempPopulation.add(curRP);
+						// Slide
+						ArrayList<ShipmentPoint> tempSPForSliding = new ArrayList<ShipmentPoint>();
+						ArrayList<Integer> tempBreaksForSliding = new ArrayList<Integer>();
+						tempSPForSliding.addAll(curPopSP);
+						tempBreaksForSliding.addAll(curBreak);
+						for (int index = firstInsertionPoint + 1; index <= secondInsertionPoint; index++) {
+							tempSPForSliding.set(index, curPopSP.get(index - 1));
+						}
+						tempSPForSliding.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
+						tempPopulation.add(new RoutePlan(tempSPForSliding, tempBreaksForSliding));
+					}
 				}
-				MBCandidate = new RoutePlan(tempSPForFlipping, tempBreaksForFlipping);
-				MBCandidate.randomBreaks();
-				tempPopulation.add(MBCandidate);
+			});
 				
-				// Swap & Modify breaks
-				tempSPForSwapping = new ArrayList<ShipmentPoint>();
-				tempBreaksForSwapping = new ArrayList<Integer>();
-				tempSPForSwapping.addAll(curPopSP);
-				tempBreaksForSwapping.addAll(curBreak);
-				tempSPForSwapping.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
-				tempSPForSwapping.set(secondInsertionPoint, curPopSP.get(firstInsertionPoint));
-				MBCandidate = new RoutePlan(tempSPForSwapping, tempBreaksForSwapping);
-				MBCandidate.randomBreaks();
-				tempPopulation.add(MBCandidate);
-				
-				// Slide & Modify breaks
-				tempSPForSliding = new ArrayList<ShipmentPoint>();
-				tempBreaksForSliding = new ArrayList<Integer>();
-				tempSPForSliding.addAll(curPopSP);
-				tempBreaksForSliding.addAll(curBreak);
-				for (int index = firstInsertionPoint + 1; index <= secondInsertionPoint; index++) {
-					tempSPForSliding.set(index, curPopSP.get(index - 1));
+			Thread t4 = new Thread(new Runnable() {
+				public void run() {
+					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
+						RoutePlan curRP = population.get(popIndex);
+						final List<ShipmentPoint> curPopSP = curRP.points;
+						tempPopulation.add(curRP);
+						// Modify breaks
+						ArrayList<ShipmentPoint> tempSPForMB = new ArrayList<ShipmentPoint>();
+						tempSPForMB.addAll(curPopSP);
+						RoutePlan MBCandidate = new RoutePlan(tempSPForMB, new ArrayList<Integer>());
+						MBCandidate.randomBreaks();
+						tempPopulation.add(MBCandidate);
+					}
 				}
-				tempSPForSliding.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
-				MBCandidate = new RoutePlan(tempSPForSliding, tempBreaksForSliding);
-				MBCandidate.randomBreaks();
-				tempPopulation.add(MBCandidate);
-			}
+			});
+				
+			Thread t5 = new Thread(new Runnable() {
+				
+				@Override
+				public void run() {
+					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
+						RoutePlan curRP = population.get(popIndex);
+						final List<ShipmentPoint> curPopSP = curRP.points;
+						final List<Integer> curBreak = curRP.breaks;
+						tempPopulation.add(curRP);
+						// Flip & Modify breaks
+						ArrayList<ShipmentPoint> tempSPForFlipping = new ArrayList<ShipmentPoint>();
+						ArrayList<Integer> tempBreaksForFlipping = new ArrayList<Integer>();
+						tempSPForFlipping.addAll(curPopSP);
+						tempBreaksForFlipping.addAll(curBreak);
+						for (int index = firstInsertionPoint; index <= secondInsertionPoint; index++) {
+							tempSPForFlipping.set(firstInsertionPoint + 
+									secondInsertionPoint - index, curPopSP.get(index));
+						}
+						RoutePlan MBCandidate = new RoutePlan(tempSPForFlipping, tempBreaksForFlipping);
+						MBCandidate.randomBreaks();
+						tempPopulation.add(MBCandidate);
+					}
+				}
+			});
+			
+			Thread t6 = new Thread(new Runnable() {
+				
+				@Override
+				public void run() {
+					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
+						RoutePlan curRP = population.get(popIndex);
+						final List<ShipmentPoint> curPopSP = curRP.points;
+						final List<Integer> curBreak = curRP.breaks;
+						tempPopulation.add(curRP);
+						// Swap & Modify breaks
+						ArrayList<ShipmentPoint> tempSPForSwapping = new ArrayList<ShipmentPoint>();
+						ArrayList<Integer> tempBreaksForSwapping = new ArrayList<Integer>();
+						tempSPForSwapping.addAll(curPopSP);
+						tempBreaksForSwapping.addAll(curBreak);
+						tempSPForSwapping.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
+						tempSPForSwapping.set(secondInsertionPoint, curPopSP.get(firstInsertionPoint));
+						RoutePlan MBCandidate = new RoutePlan(tempSPForSwapping, tempBreaksForSwapping);
+						MBCandidate.randomBreaks();
+						tempPopulation.add(MBCandidate);
+					}
+				}
+			});
+				
+			Thread t7 = new Thread(new Runnable() {
+				public void run() {
+					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
+						RoutePlan curRP = population.get(popIndex);
+						final List<ShipmentPoint> curPopSP = curRP.points;
+						final List<Integer> curBreak = curRP.breaks;
+						tempPopulation.add(curRP);
+						// Slide & Modify breaks
+						ArrayList<ShipmentPoint> tempSPForSliding = new ArrayList<ShipmentPoint>();
+						ArrayList<Integer> tempBreaksForSliding = new ArrayList<Integer>();
+						tempSPForSliding.addAll(curPopSP);
+						tempBreaksForSliding.addAll(curBreak);
+						for (int index = firstInsertionPoint + 1; index <= secondInsertionPoint; index++) {
+							tempSPForSliding.set(index, curPopSP.get(index - 1));
+						}
+						tempSPForSliding.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
+						RoutePlan MBCandidate = new RoutePlan(tempSPForSliding, tempBreaksForSliding);
+						MBCandidate.randomBreaks();
+						tempPopulation.add(MBCandidate);
+					}
+				}
+			});
+			
+			t1.start();
+			t1.join();
+			t2.start();
+			t2.join();
+			t3.start();
+			t3.join();
+			t4.start();
+			t4.join();
+			t5.start();
+			t5.join();
+			t6.start();
+			t6.join();
+			t7.start();
+			t7.join();
 			
 			Collections.shuffle(tempPopulation);
 			population.clear();
 			for (int split = 0; split < populationSize; split++) {
 				long curMinCost = Long.MAX_VALUE;
 				int curMinCostIndex = -1;
-				for (int subIndex = 0; subIndex < 8; subIndex++) {
-					int curCost = tempPopulation.get(split * 8 + subIndex).getTotalCost();
+				
+				// Whether or not to choose the max (MAY CHOOSE MAX WITH SOME PROBABILITY)
+				for (int subIndex = 0; subIndex < methodCount; subIndex++) {
+					int curCost = tempPopulation.get(split * methodCount + subIndex).getTotalCost();
 					if (curCost < curMinCost) {
 						curMinCost = curCost;
 						curMinCostIndex = subIndex;
@@ -178,8 +297,7 @@ public class MainTest {
 				if (curMinCost < iterationMin) {
 					iterationMin = curMinCost;
 				}
-				population.add(tempPopulation.get(split * 8 + curMinCostIndex));
-//				population.add(tempPopulation.get(new Random().nextInt(8)));
+				population.add(tempPopulation.get(split * methodCount + curMinCostIndex));
 			}
 			
 			System.out.println("Global min is: " + globalMin);
@@ -220,6 +338,10 @@ public class MainTest {
 			}
 			System.out.println();
 		}
+	}
+	
+	private static void writePointsToFile(List<ShipmentPoint> sp) {
+		
 	}
 	
 	public static void printRoutes(RoutePlan plan) {
