@@ -8,11 +8,14 @@
 	"num_cars": 5,
 	"map_width": 3000,
   "map_height": 2000,
+  "single_car_cost": 200,
 	"use_multithreading": 1,
 	"base_dir_location": "C:\\Users\\bml\\Desktop\\Algorithms\\MTSPGA\\",
 	"report_suffix": "\\Report",
 	"points_suffix": "\\Pointset",
-	"random_depot": 0,
+  "random_depot": 0,
+  "min_tour": 3,
+  "max_tour": -1,
 	"depot_location": {
 		"xpos": 12,
 		"ypos": 78

@@ -20,8 +20,8 @@ public class MainTest {
 	private static int numDestinations = 100;
 	private static int randomNumIterations = 2000; // Irrelevant
 	private static int numCars = 5;
-	private static int minTour = Integer.MIN_VALUE; // without any constraints
-	private static int maxTour = Integer.MAX_VALUE; // without any constraints
+	private static int minTour = -1; // without any constraints
+	private static int maxTour = -1; // without any constraints
 	private static ShipmentPoint depotLocation;
 	private static List<ShipmentPoint> destLocations;
 	private static boolean useVariableCars = false;
@@ -97,7 +97,6 @@ public class MainTest {
 			}
 			
 			grandTotalCost += rp.getTotalCost();
-			System.out.println(rp.getTotalCost());
 		}
 		
 		System.out.println(String.format("The minimum cost is: %d", minCost));
@@ -439,9 +438,7 @@ public class MainTest {
 		private List<ShipmentPoint> points = new ArrayList<ShipmentPoint>();
 		private List<Integer> breaks = new ArrayList<Integer>();
 		
-		public RoutePlan() {
-			
-		}
+		public RoutePlan() {}
 
 		public RoutePlan(List<ShipmentPoint> points, List<Integer> breaks) {
 			this.points = points;
@@ -486,10 +483,55 @@ public class MainTest {
 		
 		private void randomBreaks() {
 			breaks.clear();
-			while (breaks.size() < numCars) {
-				int randBreak = 1 + new Random().nextInt(numDestinations - 1);
-				if (!breaks.contains(randBreak)) {
-					breaks.add(randBreak);
+
+			// no constraints at all
+			if (minTour < 2 && maxTour < 0) {
+				while (breaks.size() < numCars) {
+					int randBreak = 1 + new Random().nextInt(numDestinations - 1);
+					if (!breaks.contains(randBreak)) {
+						breaks.add(randBreak);
+					}
+				}
+			} else if (minTour > 1 && maxTour < 0) {
+				// Only minTour needs to be considered
+				for (int i = 0; i < numCars; i++) {
+					breaks.add(minTour);
+				}
+				
+				int degreeOfFreedom = numDestinations - numCars * minTour;
+				while (degreeOfFreedom > 0) {
+					int randomIndex = new Random().nextInt(numCars);
+					breaks.set(randomIndex, breaks.get(randomIndex) + 1);
+					degreeOfFreedom --;
+				}
+				
+				breaks.set(0, breaks.get(0) - 1);
+				int sum = breaks.get(0);
+				for (int i = 1; i < breaks.size(); i++) {
+					sum += breaks.get(i);
+					breaks.set(i, sum);
+				}
+			} else {
+				// Both minTour and maxTour need to be considered
+				for (int i = 0; i < numCars; i++) {
+					breaks.add(minTour);
+				}
+				
+				int degreeOfFreedom = numDestinations - numCars * minTour;
+				while (degreeOfFreedom > 0) {
+					int randomIndex = 0;
+					do {
+						randomIndex = new Random().nextInt(numCars);
+					} while (breaks.get(randomIndex) >= maxTour);
+					breaks.set(randomIndex, breaks.get(randomIndex) + 1);
+					degreeOfFreedom --;
+				}
+				
+				breaks.set(0, breaks.get(0) - 1);
+				int sum = breaks.get(0);
+				for (int i = 1; i < breaks.size(); i++) {
+					sum += breaks.get(i);
+					breaks.set(i, sum);
 				}
 			}
 		}

@@ -14,8 +14,8 @@
 	"report_suffix": "\\Report",
 	"points_suffix": "\\Pointset",
   "random_depot": 0,
-  "min_tour": 5,
-  "max_tour": 20,
+  "min_tour": 3,
+  "max_tour": -1,
 	"depot_location": {
 		"xpos": 12,
 		"ypos": 78
