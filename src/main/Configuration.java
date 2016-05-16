@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 public class Configuration {
@@ -44,6 +45,12 @@ public class Configuration {
 	}
 	
 	public Object getValue(String key) {
-		return confMapping.get(key);
+		Object returnVal = new Object();
+		try {
+			returnVal = confMapping.get(key);
+		} catch (JSONException ee) {
+			return null;
+		}
+		return returnVal;
 	}
 }

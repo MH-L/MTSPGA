@@ -20,6 +20,8 @@ public class MainTest {
 	private static int numDestinations = 100;
 	private static int randomNumIterations = 2000; // Irrelevant
 	private static int numCars = 5;
+	private static int minTour = Integer.MIN_VALUE; // without any constraints
+	private static int maxTour = Integer.MAX_VALUE; // without any constraints
 	private static ShipmentPoint depotLocation;
 	private static List<ShipmentPoint> destLocations;
 	private static boolean useVariableCars = false;
@@ -68,10 +70,14 @@ public class MainTest {
 		useMultithreading = cfg.getValue("use_multithreading") == null ? useMultithreading : (int) cfg.getValue("use_multithreading") == 1;
 		baseDir = (String) (cfg.getValue("base_dir_location") == null ? baseDir : cfg.getValue("base_dir_location"));
 		reportSuffix = (String) (cfg.getValue("report_suffix") == null ? reportSuffix : cfg.getValue("report_suffix"));
+		pointsSuffix = (String) (cfg.getValue("points_suffix") == null ? pointsSuffix : cfg.getValue("points_suffix"));
 		mapHeight = (int) (cfg.getValue("map_height") == null ? mapHeight : cfg.getValue("map_height"));
 		mapWidth = (int) (cfg.getValue("map_width") == null ? mapWidth : cfg.getValue("map_width"));
 		useVariableCars = cfg.getValue("use_variable_cars") == null ? useVariableCars : (int) cfg.getValue("use_variable_cars") == 1;
+		carCost = (int) (cfg.getValue("single_car_cost") == null ? carCost : cfg.getValue("single_car_cost"));
 		loadPointsFromFile = cfg.getValue("load_points_from_file") == null ? loadPointsFromFile : (int) cfg.getValue("load_points_from_file") == 1;
+		minTour = (int) (cfg.getValue("min_tour") == null ? minTour : cfg.getValue("min_tour"));
+		maxTour = (int) (cfg.getValue("max_tour") == null ? maxTour : cfg.getValue("max_tour"));
 	}
 	
 	public void doCalc(int numIterations) throws InterruptedException {

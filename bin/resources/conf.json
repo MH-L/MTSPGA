@@ -7,7 +7,7 @@
   "use_variable_cars": 0,
 	"num_cars": 5,
 	"map_width": 3000,
-	"map_height": 2000,
+  "map_height": 2000,
 	"use_multithreading": 1,
 	"base_dir_location": "C:\\Users\\bml\\Desktop\\Algorithms\\MTSPGA\\",
 	"report_suffix": "\\Report",
