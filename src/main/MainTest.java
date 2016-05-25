@@ -1,4 +1,5 @@
 package main;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -11,6 +12,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
+import javax.swing.JFrame;
+
 public class MainTest {
 	/**
 	 * Parameters by problem definition
@@ -22,12 +25,14 @@ public class MainTest {
 	private static int numCars = 5;
 	private static int minTour = -1; // without any constraints
 	private static int maxTour = -1; // without any constraints
-	private static ShipmentPoint depotLocation;
-	private static List<ShipmentPoint> destLocations;
+	private static SimplePoint depotLocation;
+	private static List<SimplePoint> destLocations;
 	private static boolean useVariableCars = false;
 	private static int carCost = 200;
 	private static boolean randomDepot = false;
 	private static boolean loadPointsFromFile = false;
+	private static long initialMinCost = 0;
+	private static JFrame rf;
 	
 	/**
 	 * Storage locations
@@ -39,13 +44,13 @@ public class MainTest {
 	/**
 	 * Tunable parameters for algorithm
 	 */
-	private static int populationSize = 10;
-	private static int numGAIterations = 1000000;
+	private static int populationSize = 100;
+	private static int numGAIterations = 10000;
 	private static int methodCount = 8;
 	private static boolean useMultithreading = false;
 	private static SelectionStrategy ss = SelectionStrategy.GROUP_AND_MAX;
 	
-	enum SelectionStrategy {
+	private enum SelectionStrategy {
 		GROUP_AND_MAX,  // group population and select max of each group
 		GROUP_AND_RANDOM,  // group population and select a random instance (better
 						   // ones have greater chance to be chosen
@@ -53,6 +58,8 @@ public class MainTest {
 	}
 	
 	public static void main(String[] args) throws InterruptedException {
+		rf = new RouteRendererFrame();
+		rf.setVisible(true);
 		Configuration cfg = Configuration.getInstance();
 		loadConfiguration(cfg);
 		long systemCurrentTime = System.currentTimeMillis();
@@ -101,15 +108,21 @@ public class MainTest {
 		
 		System.out.println(String.format("The minimum cost is: %d", minCost));
 		System.out.println(String.format("The average cost is: %d", grandTotalCost / numIterations));
+		initialMinCost = minCost;
 		printRoutes(rp);
-		doGA();
+		RoutePlan optPlan = doGA();
+		for (int breaksLen = 0; breaksLen < optPlan.breaks.size(); breaksLen++) {
+			System.out.println("Breaks value is: " + optPlan.breaks.get(breaksLen));
+		}
+		System.out.println("Initial min cost is: " + initialMinCost);
 	}
 	
-	private void doGA() throws InterruptedException {
+	private RoutePlan doGA() throws InterruptedException {
 		// Set initial capacity to population size in order to do less resize
 		final List<RoutePlan> population = new ArrayList<RoutePlan>(populationSize);
 		final List<RoutePlan> tempPopulation = new ArrayList<RoutePlan>(populationSize * methodCount);
 		long globalMin = Long.MAX_VALUE;
+		RoutePlan optimalPlan = null;
 
 		// First, initialize the population.
 		for (int i = 0; i < populationSize; i++) {
@@ -146,11 +159,11 @@ public class MainTest {
 				public void run() {
 					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
 						RoutePlan curRP = population.get(popIndex);
-						final List<ShipmentPoint> curPopSP = curRP.points;
+						final List<SimplePoint> curPopSP = curRP.points;
 						final List<Integer> curBreak = curRP.breaks;
 						tempPopulation.add(curRP);
 						// Flip
-						ArrayList<ShipmentPoint> tempSPForFlipping = new ArrayList<ShipmentPoint>();
+						ArrayList<SimplePoint> tempSPForFlipping = new ArrayList<SimplePoint>();
 						ArrayList<Integer> tempBreaksForFlipping = new ArrayList<Integer>();
 						tempSPForFlipping.addAll(curPopSP);
 						tempBreaksForFlipping.addAll(curBreak);
@@ -169,11 +182,11 @@ public class MainTest {
 				public void run() {
 					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
 						RoutePlan curRP = population.get(popIndex);
-						final List<ShipmentPoint> curPopSP = curRP.points;
+						final List<SimplePoint> curPopSP = curRP.points;
 						final List<Integer> curBreak = curRP.breaks;
 						tempPopulation.add(curRP);
 						// Swap
-						ArrayList<ShipmentPoint> tempSPForSwapping = new ArrayList<ShipmentPoint>();
+						ArrayList<SimplePoint> tempSPForSwapping = new ArrayList<SimplePoint>();
 						ArrayList<Integer> tempBreaksForSwapping = new ArrayList<Integer>();
 						tempSPForSwapping.addAll(curPopSP);
 						tempBreaksForSwapping.addAll(curBreak);
@@ -190,11 +203,11 @@ public class MainTest {
 				public void run() {
 					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
 						RoutePlan curRP = population.get(popIndex);
-						final List<ShipmentPoint> curPopSP = curRP.points;
+						final List<SimplePoint> curPopSP = curRP.points;
 						final List<Integer> curBreak = curRP.breaks;
 						tempPopulation.add(curRP);
 						// Slide
-						ArrayList<ShipmentPoint> tempSPForSliding = new ArrayList<ShipmentPoint>();
+						ArrayList<SimplePoint> tempSPForSliding = new ArrayList<SimplePoint>();
 						ArrayList<Integer> tempBreaksForSliding = new ArrayList<Integer>();
 						tempSPForSliding.addAll(curPopSP);
 						tempBreaksForSliding.addAll(curBreak);
@@ -211,10 +224,10 @@ public class MainTest {
 				public void run() {
 					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
 						RoutePlan curRP = population.get(popIndex);
-						final List<ShipmentPoint> curPopSP = curRP.points;
+						final List<SimplePoint> curPopSP = curRP.points;
 						tempPopulation.add(curRP);
 						// Modify breaks
-						ArrayList<ShipmentPoint> tempSPForMB = new ArrayList<ShipmentPoint>();
+						ArrayList<SimplePoint> tempSPForMB = new ArrayList<SimplePoint>();
 						tempSPForMB.addAll(curPopSP);
 						RoutePlan MBCandidate = new RoutePlan(tempSPForMB, new ArrayList<Integer>());
 						MBCandidate.randomBreaks();
@@ -229,11 +242,11 @@ public class MainTest {
 				public void run() {
 					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
 						RoutePlan curRP = population.get(popIndex);
-						final List<ShipmentPoint> curPopSP = curRP.points;
+						final List<SimplePoint> curPopSP = curRP.points;
 						final List<Integer> curBreak = curRP.breaks;
 						tempPopulation.add(curRP);
 						// Flip & Modify breaks
-						ArrayList<ShipmentPoint> tempSPForFlipping = new ArrayList<ShipmentPoint>();
+						ArrayList<SimplePoint> tempSPForFlipping = new ArrayList<SimplePoint>();
 						ArrayList<Integer> tempBreaksForFlipping = new ArrayList<Integer>();
 						tempSPForFlipping.addAll(curPopSP);
 						tempBreaksForFlipping.addAll(curBreak);
@@ -254,11 +267,11 @@ public class MainTest {
 				public void run() {
 					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
 						RoutePlan curRP = population.get(popIndex);
-						final List<ShipmentPoint> curPopSP = curRP.points;
+						final List<SimplePoint> curPopSP = curRP.points;
 						final List<Integer> curBreak = curRP.breaks;
 						tempPopulation.add(curRP);
 						// Swap & Modify breaks
-						ArrayList<ShipmentPoint> tempSPForSwapping = new ArrayList<ShipmentPoint>();
+						ArrayList<SimplePoint> tempSPForSwapping = new ArrayList<SimplePoint>();
 						ArrayList<Integer> tempBreaksForSwapping = new ArrayList<Integer>();
 						tempSPForSwapping.addAll(curPopSP);
 						tempBreaksForSwapping.addAll(curBreak);
@@ -275,11 +288,11 @@ public class MainTest {
 				public void run() {
 					for (int popIndex = 0; popIndex < populationSize; popIndex++) {
 						RoutePlan curRP = population.get(popIndex);
-						final List<ShipmentPoint> curPopSP = curRP.points;
+						final List<SimplePoint> curPopSP = curRP.points;
 						final List<Integer> curBreak = curRP.breaks;
 						tempPopulation.add(curRP);
 						// Slide & Modify breaks
-						ArrayList<ShipmentPoint> tempSPForSliding = new ArrayList<ShipmentPoint>();
+						ArrayList<SimplePoint> tempSPForSliding = new ArrayList<SimplePoint>();
 						ArrayList<Integer> tempBreaksForSliding = new ArrayList<Integer>();
 						tempSPForSliding.addAll(curPopSP);
 						tempBreaksForSliding.addAll(curBreak);
@@ -326,6 +339,7 @@ public class MainTest {
 				
 				if (curMinCost < globalMin) {
 					globalMin = curMinCost;
+					optimalPlan = tempPopulation.get(split * methodCount + curMinCostIndex);
 				}
 				
 				if (curMinCost < iterationMin) {
@@ -336,6 +350,8 @@ public class MainTest {
 			
 			System.out.println("Global min is: " + globalMin);
 		}
+		
+		return optimalPlan;
 	}
 	
 	public void loadPointsFromFile(String filename) throws IOException {
@@ -345,30 +361,33 @@ public class MainTest {
 		while ((inline = br.readLine()) != null) {
 			String[] latln = inline.split(" ");
 			assert latln.length == 2;
-			ShipmentPoint pt = new ShipmentPoint(Integer.parseInt(latln[0]), Integer.parseInt(latln[1]));
+			SimplePoint pt = new SimplePoint(Integer.parseInt(latln[0]), Integer.parseInt(latln[1]));
 			destLocations.add(pt);
 		}
 		br.close();
 	}
 	
 	private void populateLocations() {
-		destLocations = new ArrayList<ShipmentPoint>();
+		destLocations = new ArrayList<SimplePoint>();
 		Random rnd1 = new Random();
 		int depotxpos = rnd1.nextInt(mapWidth);
 		int depotypos = rnd1.nextInt(mapHeight);
-		depotLocation = new ShipmentPoint(depotxpos, depotypos);
+		depotLocation = new SimplePoint(depotxpos, depotypos);
+		RouteRenderer.depotPt = depotLocation;
 
 		for (int i = 0; i < numDestinations; i++) {
-			ShipmentPoint candidate;
+			SimplePoint candidate;
 			do {
 				Random rnd = new Random();
 				int xpos = rnd.nextInt(mapWidth);
 				int ypos = rnd.nextInt(mapHeight);
-				candidate = new ShipmentPoint(xpos, ypos);
+				candidate = new SimplePoint(xpos, ypos);
 			} while (destLocations.contains(candidate) || candidate.equals(depotLocation));
 			
 			destLocations.add(candidate);
 		}
+		
+		RouteRenderer.shipmentPoints = destLocations;
 		
 //		try {
 //			writePointsToFile(destLocations);
@@ -380,7 +399,7 @@ public class MainTest {
 	public void visualize() {
 		for (int xindex = 0; xindex < mapWidth; xindex++) {
 			for (int yindex = 0; yindex < mapHeight; yindex++) {
-				ShipmentPoint pt = new ShipmentPoint(xindex, yindex);
+				SimplePoint pt = new SimplePoint(xindex, yindex);
 				if (destLocations.contains(pt)) {
 					System.out.print('E');
 				} else if (pt.equals(depotLocation)) {
@@ -393,10 +412,10 @@ public class MainTest {
 		}
 	}
 	
-	public static void writePointsToFile(List<ShipmentPoint> sp) throws FileNotFoundException {
+	public static void writePointsToFile(List<SimplePoint> sp) throws FileNotFoundException {
 		long currentTime = System.currentTimeMillis();
 		PrintWriter pr = new PrintWriter(baseDir + pointsSuffix + currentTime + ".txt");
-		for (ShipmentPoint point : sp) {
+		for (SimplePoint point : sp) {
 			pr.println(point.xpos + " " + point.ypos);
 		}
 		pr.close();
@@ -404,7 +423,7 @@ public class MainTest {
 	
 	public static void printRoutes(RoutePlan plan) {
 		List<Integer> breaks = plan.breaks;
-		List<ShipmentPoint> perm = plan.points;
+		List<SimplePoint> perm = plan.points;
 		System.out.println(String.format("Depot Location: XPos -- %d, YPos -- %d",
 				depotLocation.xpos, depotLocation.ypos));
 		Collections.sort(breaks);
@@ -429,18 +448,18 @@ public class MainTest {
 		System.out.println();
 	}
 	
-	public static long calcDist(ShipmentPoint pointA, ShipmentPoint pointB) {
+	public static long calcDist(SimplePoint pointA, SimplePoint pointB) {
 		return Math.round(Math.sqrt(Math.pow(pointA.xpos - pointB.xpos, 2)
 				+ Math.pow(pointA.ypos - pointB.ypos, 2)));
 	}
 	
 	public class RoutePlan {
-		private List<ShipmentPoint> points = new ArrayList<ShipmentPoint>();
+		private List<SimplePoint> points = new ArrayList<SimplePoint>();
 		private List<Integer> breaks = new ArrayList<Integer>();
 		
 		public RoutePlan() {}
 
-		public RoutePlan(List<ShipmentPoint> points, List<Integer> breaks) {
+		public RoutePlan(List<SimplePoint> points, List<Integer> breaks) {
 			this.points = points;
 			this.breaks = breaks;
 		}
@@ -486,7 +505,7 @@ public class MainTest {
 
 			// no constraints at all
 			if (minTour < 2 && maxTour < 0) {
-				while (breaks.size() < numCars) {
+				while (breaks.size() < numCars - 1) {
 					int randBreak = 1 + new Random().nextInt(numDestinations - 1);
 					if (!breaks.contains(randBreak)) {
 						breaks.add(randBreak);
@@ -494,13 +513,13 @@ public class MainTest {
 				}
 			} else if (minTour > 1 && maxTour < 0) {
 				// Only minTour needs to be considered
-				for (int i = 0; i < numCars; i++) {
+				for (int i = 0; i < numCars - 1; i++) {
 					breaks.add(minTour);
 				}
 				
 				int degreeOfFreedom = numDestinations - numCars * minTour;
 				while (degreeOfFreedom > 0) {
-					int randomIndex = new Random().nextInt(numCars);
+					int randomIndex = new Random().nextInt(numCars - 1);
 					breaks.set(randomIndex, breaks.get(randomIndex) + 1);
 					degreeOfFreedom --;
 				}
@@ -513,7 +532,7 @@ public class MainTest {
 				}
 			} else {
 				// Both minTour and maxTour need to be considered
-				for (int i = 0; i < numCars; i++) {
+				for (int i = 0; i < numCars - 1; i++) {
 					breaks.add(minTour);
 				}
 				
@@ -537,13 +556,21 @@ public class MainTest {
 		}
 	}
 	
-	public class ShipmentPoint {
+	public class SimplePoint {
 		private int xpos;
 		private int ypos;
 		
-		public ShipmentPoint(int xpos, int ypos) {
+		public SimplePoint(int xpos, int ypos) {
 			this.xpos = xpos;
 			this.ypos = ypos;
+		}
+		
+		public int getX() {
+			return xpos;
+		}
+		
+		public int getY() {
+			return ypos;
 		}
 
 		@Override
@@ -564,7 +591,7 @@ public class MainTest {
 				return false;
 			if (getClass() != obj.getClass())
 				return false;
-			ShipmentPoint other = (ShipmentPoint) obj;
+			SimplePoint other = (SimplePoint) obj;
 			if (!getOuterType().equals(other.getOuterType()))
 				return false;
 			if (xpos != other.xpos)
