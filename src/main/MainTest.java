@@ -34,6 +34,7 @@ public class MainTest {
 	private static boolean loadPointsFromFile = false;
 	private static long initialMinCost = 0;
 	private static RouteRendererFrame rf;
+	private static RouteRenderer rr;
 	
 	/**
 	 * Storage locations
@@ -59,7 +60,8 @@ public class MainTest {
 	}
 	
 	public static void main(String[] args) throws InterruptedException {
-		rf = new RouteRendererFrame();
+		rr = new RouteRenderer();
+		rf = new RouteRendererFrame(rr);
 		rf.setVisible(true);
 		Configuration cfg = Configuration.getInstance();
 		loadConfiguration(cfg);
@@ -93,8 +95,8 @@ public class MainTest {
 	}
 	
 	public void doCalc(int numIterations) throws InterruptedException {
-		RoutePlan rp = new RoutePlan();
 		populateLocations();
+		RoutePlan rp = new RoutePlan();
 		List<Integer> optimalBreaks = new ArrayList<Integer>();
 		long minCost = 1000000000000000000L;
 		long grandTotalCost = 0;
@@ -180,7 +182,7 @@ public class MainTest {
 							tempSPForFlipping.set(firstInsertionPoint + 
 									secondInsertionPoint - index, curPopSP.get(index));
 						}
-						tempPopulation.add(new RoutePlan(tempSPForFlipping, tempBreaksForFlipping));
+						tempPopulation.add(new RoutePlan(tempSPForFlipping, tempBreaksForFlipping, depotLocation));
 					}
 				}
 			});
@@ -201,7 +203,7 @@ public class MainTest {
 						tempBreaksForSwapping.addAll(curBreak);
 						tempSPForSwapping.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
 						tempSPForSwapping.set(secondInsertionPoint, curPopSP.get(firstInsertionPoint));
-						tempPopulation.add(new RoutePlan(tempSPForSwapping, tempBreaksForSwapping));
+						tempPopulation.add(new RoutePlan(tempSPForSwapping, tempBreaksForSwapping, depotLocation));
 					}
 				}
 			});
@@ -224,7 +226,7 @@ public class MainTest {
 							tempSPForSliding.set(index, curPopSP.get(index - 1));
 						}
 						tempSPForSliding.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
-						tempPopulation.add(new RoutePlan(tempSPForSliding, tempBreaksForSliding));
+						tempPopulation.add(new RoutePlan(tempSPForSliding, tempBreaksForSliding, depotLocation));
 					}
 				}
 			});
@@ -238,7 +240,7 @@ public class MainTest {
 						// Modify breaks
 						ArrayList<SimplePoint> tempSPForMB = new ArrayList<SimplePoint>();
 						tempSPForMB.addAll(curPopSP);
-						RoutePlan MBCandidate = new RoutePlan(tempSPForMB, new ArrayList<Integer>());
+						RoutePlan MBCandidate = new RoutePlan(tempSPForMB, new ArrayList<Integer>(), depotLocation);
 						MBCandidate.randomBreaks();
 						tempPopulation.add(MBCandidate);
 					}
@@ -263,7 +265,7 @@ public class MainTest {
 							tempSPForFlipping.set(firstInsertionPoint + 
 									secondInsertionPoint - index, curPopSP.get(index));
 						}
-						RoutePlan MBCandidate = new RoutePlan(tempSPForFlipping, tempBreaksForFlipping);
+						RoutePlan MBCandidate = new RoutePlan(tempSPForFlipping, tempBreaksForFlipping, depotLocation);
 						MBCandidate.randomBreaks();
 						tempPopulation.add(MBCandidate);
 					}
@@ -286,7 +288,7 @@ public class MainTest {
 						tempBreaksForSwapping.addAll(curBreak);
 						tempSPForSwapping.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
 						tempSPForSwapping.set(secondInsertionPoint, curPopSP.get(firstInsertionPoint));
-						RoutePlan MBCandidate = new RoutePlan(tempSPForSwapping, tempBreaksForSwapping);
+						RoutePlan MBCandidate = new RoutePlan(tempSPForSwapping, tempBreaksForSwapping, depotLocation);
 						MBCandidate.randomBreaks();
 						tempPopulation.add(MBCandidate);
 					}
@@ -309,7 +311,7 @@ public class MainTest {
 							tempSPForSliding.set(index, curPopSP.get(index - 1));
 						}
 						tempSPForSliding.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
-						RoutePlan MBCandidate = new RoutePlan(tempSPForSliding, tempBreaksForSliding);
+						RoutePlan MBCandidate = new RoutePlan(tempSPForSliding, tempBreaksForSliding, depotLocation);
 						MBCandidate.randomBreaks();
 						tempPopulation.add(MBCandidate);
 					}
@@ -358,6 +360,7 @@ public class MainTest {
 			}
 			
 			System.out.println("Global min is: " + globalMin);
+			rr.paintAll(optimalPlan, (Graphics2D) rr.getGraphics()); 
 		}
 		
 		return optimalPlan;
@@ -383,7 +386,6 @@ public class MainTest {
 		int depotypos = rnd1.nextInt(mapHeight);
 		if (depotLocation == null)
 			depotLocation = new SimplePoint(depotxpos, depotypos);
-		RouteRenderer.depotPt = depotLocation;
 
 		for (int i = 0; i < numDestinations; i++) {
 			SimplePoint candidate;
@@ -396,8 +398,6 @@ public class MainTest {
 			
 			destLocations.add(candidate);
 		}
-		
-		RouteRenderer.shipmentPoints = destLocations;
 		
 //		try {
 //			writePointsToFile(destLocations);
@@ -466,10 +466,12 @@ public class MainTest {
 	public class RoutePlan {
 		private List<SimplePoint> points = new ArrayList<SimplePoint>();
 		private List<Integer> breaks = new ArrayList<Integer>();
+		private SimplePoint depotLocation;
 		
-		public RoutePlan() {}
+		public RoutePlan() { this.depotLocation = MainTest.depotLocation; }
 
-		public RoutePlan(List<SimplePoint> points, List<Integer> breaks) {
+		public RoutePlan(List<SimplePoint> points, List<Integer> breaks, SimplePoint depotLocation) {
+			this.depotLocation = depotLocation;
 			this.points = points;
 			this.breaks = breaks;
 		}
@@ -543,8 +545,9 @@ public class MainTest {
 				
 				int degreeOfFreedom = numDestinations - numCars * minTour;
 				while (degreeOfFreedom > 0) {
-					int randomIndex = new Random().nextInt(numCars - 1);
-					breaks.set(randomIndex, breaks.get(randomIndex) + 1);
+					int randomIndex = new Random().nextInt(numCars);
+					if (randomIndex < breaks.size())
+						breaks.set(randomIndex, breaks.get(randomIndex) + 1);
 					degreeOfFreedom --;
 				}
 				
@@ -565,6 +568,7 @@ public class MainTest {
 					int randomIndex = 0;
 					do {
 						randomIndex = new Random().nextInt(numCars);
+						// TODO bugs!!!!
 					} while (breaks.get(randomIndex) >= maxTour);
 					breaks.set(randomIndex, breaks.get(randomIndex) + 1);
 					degreeOfFreedom --;
@@ -593,6 +597,10 @@ public class MainTest {
 
 		public void setBreaks(List<Integer> breaks) {
 			this.breaks = breaks;
+		}
+		
+		public SimplePoint getDepot() {
+			return depotLocation;
 		}
 	}
 	
