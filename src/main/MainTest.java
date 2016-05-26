@@ -1,5 +1,6 @@
 package main;
 
+import java.awt.Graphics2D;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -32,7 +33,7 @@ public class MainTest {
 	private static boolean randomDepot = false;
 	private static boolean loadPointsFromFile = false;
 	private static long initialMinCost = 0;
-	private static JFrame rf;
+	private static RouteRendererFrame rf;
 	
 	/**
 	 * Storage locations
@@ -66,6 +67,10 @@ public class MainTest {
 		MainTest mt = new MainTest();
 		mt.doCalc(randomNumIterations);
 		System.out.println("Total running time is: " + (System.currentTimeMillis() - systemCurrentTime));
+	}
+	
+	public static void setDepotLocation(SimplePoint sp) {
+		depotLocation = sp;
 	}
 	
 	private static void loadConfiguration(Configuration cfg) {
@@ -103,6 +108,10 @@ public class MainTest {
 				}
 			}
 			
+//			if (i == 1) {
+//				RouteRenderer rr = rf.getRenderer();
+//				rr.paintAll(rp, (Graphics2D) rr.getGraphics());
+//			}
 			grandTotalCost += rp.getTotalCost();
 		}
 		
@@ -372,7 +381,8 @@ public class MainTest {
 		Random rnd1 = new Random();
 		int depotxpos = rnd1.nextInt(mapWidth);
 		int depotypos = rnd1.nextInt(mapHeight);
-		depotLocation = new SimplePoint(depotxpos, depotypos);
+		if (depotLocation == null)
+			depotLocation = new SimplePoint(depotxpos, depotypos);
 		RouteRenderer.depotPt = depotLocation;
 
 		for (int i = 0; i < numDestinations; i++) {
@@ -479,17 +489,29 @@ public class MainTest {
 			
 			sum += calcDist(points.get(lastBreak), depotLocation);
 			sum += calcDist(points.get(points.size() - 1), depotLocation);
-			for (int i = lastBreak; i < points.size(); i++) {
+			for (int i = lastBreak + 1; i < points.size(); i++) {
 				sum += calcDist(points.get(i), points.get(i - 1));
 			}
-			
+
 			return sum;
+		}
+		
+		public void printAllPointsAndBreaks() {
+			System.out.println(String.format("Depot location: XPos: %s, YPos: %s",
+					depotLocation.xpos, depotLocation.ypos));
+			for (SimplePoint pt : points) {
+				System.out.println(String.format("XPos: %s, YPos: %s", pt.xpos, pt.ypos));
+			}
+
+			for (Integer breaksss : breaks) {
+				System.out.println(String.format("Index: %s", breaksss));
+			}
 		}
 		
 		private void load() {
 			points.clear();
 			breaks.clear();
-			while (breaks.size() < numCars) {
+			while (breaks.size() < numCars - 1) {
 				int randBreak = 1 + new Random().nextInt(numDestinations - 1);
 				if (!breaks.contains(randBreak)) {
 					breaks.add(randBreak);
@@ -502,6 +524,8 @@ public class MainTest {
 		
 		private void randomBreaks() {
 			breaks.clear();
+			if (numCars <= 1)
+				return;
 
 			// no constraints at all
 			if (minTour < 2 && maxTour < 0) {
@@ -553,6 +577,22 @@ public class MainTest {
 					breaks.set(i, sum);
 				}
 			}
+		}
+
+		public List<SimplePoint> getPoints() {
+			return points;
+		}
+
+		public void setPoints(List<SimplePoint> points) {
+			this.points = points;
+		}
+
+		public List<Integer> getBreaks() {
+			return breaks;
+		}
+
+		public void setBreaks(List<Integer> breaks) {
+			this.breaks = breaks;
 		}
 	}
 	
