@@ -10,10 +10,18 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import javax.swing.JFrame;
+
+import net.sf.javaml.clustering.KMeans;
+import net.sf.javaml.core.Dataset;
+import net.sf.javaml.core.DefaultDataset;
+import net.sf.javaml.core.DenseInstance;
+import net.sf.javaml.core.Instance;
 
 public class MainTest {
 	/**
@@ -96,6 +104,19 @@ public class MainTest {
 	
 	public void doCalc(int numIterations) throws InterruptedException {
 		populateLocations();
+		Map<Integer, List<SimplePoint>> partitions = partitionPoints(destLocations, depotLocation, 1000);
+		List<List<SimplePoint>> clusterOfPoints = new ArrayList<>();
+		Dataset[] pointsClusters = kmeansCluster(destLocations, (int) Math.ceil(destLocations.size() / 15));
+		for (Dataset ds : pointsClusters) {
+			List<SimplePoint> lst = new ArrayList<SimplePoint>();
+			for (Instance ins : ds) {
+				lst.add(new SimplePoint((int) ins.value(0), (int) ins.value(1)));
+			}
+			clusterOfPoints.add(lst);
+		}
+		for (Integer groupKey : partitions.keySet()) {
+			System.out.println(String.format("Group Number: %s, Size: %s", groupKey, partitions.get(groupKey).size()));
+		}
 		RoutePlan rp = new RoutePlan();
 		List<Integer> optimalBreaks = new ArrayList<Integer>();
 		long minCost = 1000000000000000000L;
@@ -109,11 +130,7 @@ public class MainTest {
 					optimalBreaks.add(breakInteger);
 				}
 			}
-			
-//			if (i == 1) {
-//				RouteRenderer rr = rf.getRenderer();
-//				rr.paintAll(rp, (Graphics2D) rr.getGraphics());
-//			}
+
 			grandTotalCost += rp.getTotalCost();
 		}
 		
@@ -121,14 +138,71 @@ public class MainTest {
 		System.out.println(String.format("The average cost is: %d", grandTotalCost / numIterations));
 		initialMinCost = minCost;
 		printRoutes(rp);
-		RoutePlan optPlan = doGA();
-		for (int breaksLen = 0; breaksLen < optPlan.breaks.size(); breaksLen++) {
-			System.out.println("Breaks value is: " + optPlan.breaks.get(breaksLen));
+		
+		List<RoutePlan> optimalPlansForPartitions = new ArrayList<RoutePlan>();
+		System.out.println("In total, we have " + partitions.keySet().size() + " partitions.");
+//		for (Integer key : partitions.keySet()) {
+//			List<SimplePoint> singlePart = partitions.get(key);
+//			RoutePlan optPlan = doGA(populationSize, numGAIterations, (int) Math.ceil(singlePart.size() / 15), singlePart, false);
+//			optimalPlansForPartitions.add(optPlan);
+//		}
+		
+		// K-Means performances
+		List<RoutePlan> optimalPlansKMeans = new ArrayList<RoutePlan>();
+		for (List<SimplePoint> llst : clusterOfPoints) {
+			RoutePlan optPlan = doGA(populationSize, 1000, 1, llst, false);
+			optimalPlansKMeans.add(optPlan);
 		}
+		
+		int sumForKMeans = 0;
+		for (RoutePlan rPlan : optimalPlansKMeans) {
+			sumForKMeans += rPlan.getTotalCost();
+		}
+		
+		int sumForPlans = 0;
+		for (RoutePlan rPlan : optimalPlansForPartitions) {
+			sumForPlans += rPlan.getTotalCost();
+		}
+
+//		RoutePlan optPlan = doGA(populationSize, numGAIterations, (int) Math.ceil(destLocations.size() / 15), destLocations, true);
+//		for (int breaksLen = 0; breaksLen < optPlan.breaks.size(); breaksLen++) {
+//			System.out.println("Breaks value is: " + optPlan.breaks.get(breaksLen));
+//		}
 		System.out.println("Initial min cost is: " + initialMinCost);
+		System.out.println("Partitioned min cost is: " + sumForPlans);
+		System.out.println("KMeans min cost is: " + sumForKMeans);
 	}
 	
-	private RoutePlan doGA() throws InterruptedException {
+	private Dataset[] kmeansCluster(List<SimplePoint> pts, int numClusters) {
+		Dataset pointsSet = new DefaultDataset();
+		for (SimplePoint pt : pts) {
+			Instance curInstance = new DenseInstance(new double[] {pt.xpos, pt.ypos});
+			pointsSet.add(curInstance);
+		}
+		
+		KMeans clusterer = new KMeans(numClusters);
+		return clusterer.cluster(pointsSet);
+	}
+	
+	private Map<Integer, List<SimplePoint>> partitionPoints(List<SimplePoint> pts, SimplePoint depotLocation, int gradient) {
+		Map<Integer, List<SimplePoint>> retVal = new HashMap<>();
+		for (SimplePoint pt : pts) {
+			double distance = calcDist(depotLocation, pt);
+			int group = (int) Math.ceil(distance / gradient);
+			if (retVal.containsKey(group)) {
+				retVal.get(group).add(pt);
+			} else {
+				retVal.put(group, new ArrayList<SimplePoint>());
+				retVal.get(group).add(pt);
+			}
+
+		}
+		return retVal;
+	}
+	
+	private RoutePlan doGA(final int populationSize, int numIterations, int carCount, List<SimplePoint> shipmentPoints,
+			boolean display)
+			throws InterruptedException {
 		// Set initial capacity to population size in order to do less resize
 		final List<RoutePlan> population = new ArrayList<RoutePlan>(populationSize);
 		final List<RoutePlan> tempPopulation = new ArrayList<RoutePlan>(populationSize * methodCount);
@@ -142,14 +216,14 @@ public class MainTest {
 			population.add(candidate);
 		}
 
-		for (int i = 0; i < numGAIterations; i++) {
+		for (int i = 0; i < numIterations; i++) {
 			long iterationMin = Long.MAX_VALUE;
 			tempPopulation.clear();
-			int firstInsertionPointInit = new Random().nextInt(numDestinations);
-			int secondInsertionPointInit = new Random().nextInt(numDestinations);
+			int firstInsertionPointInit = new Random().nextInt(shipmentPoints.size());
+			int secondInsertionPointInit = new Random().nextInt(shipmentPoints.size());
 			
 			while (firstInsertionPointInit == secondInsertionPointInit) {
-				secondInsertionPointInit = new Random().nextInt(numDestinations);
+				secondInsertionPointInit = new Random().nextInt(shipmentPoints.size());
 			}
 			
 			// Swap values if reverse
@@ -359,8 +433,14 @@ public class MainTest {
 				population.add(tempPopulation.get(split * methodCount + curMinCostIndex));
 			}
 			
-			System.out.println("Global min is: " + globalMin);
-			rr.paintAll(optimalPlan, (Graphics2D) rr.getGraphics()); 
+			if (display) {
+				System.out.println("Global min is: " + globalMin);
+			} else {
+				if (i % 100 == 0)
+					System.out.println("Iteration count: " + i);
+			}
+			
+			rr.paintAll(optimalPlan, (Graphics2D) rr.getGraphics());
 		}
 		
 		return optimalPlan;
@@ -551,7 +631,6 @@ public class MainTest {
 					degreeOfFreedom --;
 				}
 				
-				breaks.set(0, breaks.get(0) - 1);
 				int sum = breaks.get(0);
 				for (int i = 1; i < breaks.size(); i++) {
 					sum += breaks.get(i);
@@ -565,12 +644,16 @@ public class MainTest {
 				
 				int degreeOfFreedom = numDestinations - numCars * minTour;
 				while (degreeOfFreedom > 0) {
+					int discarded = 0;
 					int randomIndex = 0;
 					do {
 						randomIndex = new Random().nextInt(numCars);
-						// TODO bugs!!!!
-					} while (breaks.get(randomIndex) >= maxTour);
-					breaks.set(randomIndex, breaks.get(randomIndex) + 1);
+					} while (randomIndex >= breaks.size() ? discarded >= maxTour : 
+						breaks.get(randomIndex) >= maxTour);
+					if (randomIndex >= breaks.size())
+						discarded ++;
+					else
+						breaks.set(randomIndex, breaks.get(randomIndex) + 1);
 					degreeOfFreedom --;
 				}
 				
