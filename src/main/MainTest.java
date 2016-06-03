@@ -68,13 +68,19 @@ public class MainTest {
 	}
 	
 	public static void main(String[] args) throws InterruptedException {
+		MainTest mt = new MainTest();
+		System.out.println(isIntersecting(mt.new SimplePoint(1, 5), mt.new SimplePoint(2, 4),
+				mt.new SimplePoint(4, 4), mt.new SimplePoint(1, 1)));
+		System.out.println(isIntersecting(mt.new SimplePoint(3, 1), mt.new SimplePoint(3, 2),
+				mt.new SimplePoint(4, 4), mt.new SimplePoint(1, 1)));
+		System.out.println(isIntersecting(mt.new SimplePoint(3, 1), mt.new SimplePoint(4, 6),
+				mt.new SimplePoint(8, 8), mt.new SimplePoint(1, 1)));
 		rr = new RouteRenderer();
 		rf = new RouteRendererFrame(rr);
 		rf.setVisible(true);
 		Configuration cfg = Configuration.getInstance();
 		loadConfiguration(cfg);
 		long systemCurrentTime = System.currentTimeMillis();
-		MainTest mt = new MainTest();
 		mt.doCalc(randomNumIterations);
 		System.out.println("Total running time is: " + (System.currentTimeMillis() - systemCurrentTime));
 	}
@@ -105,15 +111,10 @@ public class MainTest {
 	public void doCalc(int numIterations) throws InterruptedException {
 		populateLocations();
 		Map<Integer, List<SimplePoint>> partitions = partitionPoints(destLocations, depotLocation, 1000);
-		List<List<SimplePoint>> clusterOfPoints = new ArrayList<>();
-		Dataset[] pointsClusters = kmeansCluster(destLocations, (int) Math.ceil(destLocations.size() / 15));
-		for (Dataset ds : pointsClusters) {
-			List<SimplePoint> lst = new ArrayList<SimplePoint>();
-			for (Instance ins : ds) {
-				lst.add(new SimplePoint((int) ins.value(0), (int) ins.value(1)));
-			}
-			clusterOfPoints.add(lst);
-		}
+
+		List<List<SimplePoint>> clusterOfPoints = kmeansCluster(destLocations, 
+				(int) Math.ceil((double) destLocations.size() / (double) 15));
+
 		for (Integer groupKey : partitions.keySet()) {
 			System.out.println(String.format("Group Number: %s, Size: %s", groupKey, partitions.get(groupKey).size()));
 		}
@@ -150,10 +151,10 @@ public class MainTest {
 		// K-Means performances
 		List<RoutePlan> optimalPlansKMeans = new ArrayList<RoutePlan>();
 		for (List<SimplePoint> llst : clusterOfPoints) {
-			RoutePlan optPlan = doGA(populationSize, 1000, 1, llst, false);
+			RoutePlan optPlan = doGA(populationSize, 1000, (int) Math.ceil(llst.size() / 15), llst, false);
 			optimalPlansKMeans.add(optPlan);
 		}
-		
+	
 		int sumForKMeans = 0;
 		for (RoutePlan rPlan : optimalPlansKMeans) {
 			sumForKMeans += rPlan.getTotalCost();
@@ -164,7 +165,8 @@ public class MainTest {
 			sumForPlans += rPlan.getTotalCost();
 		}
 
-//		RoutePlan optPlan = doGA(populationSize, numGAIterations, (int) Math.ceil(destLocations.size() / 15), destLocations, true);
+		RoutePlan optPlan = doGA(populationSize, 1000, (int) Math.ceil((double) destLocations.size() / (double) 15), 
+				destLocations, true);
 //		for (int breaksLen = 0; breaksLen < optPlan.breaks.size(); breaksLen++) {
 //			System.out.println("Breaks value is: " + optPlan.breaks.get(breaksLen));
 //		}
@@ -173,15 +175,170 @@ public class MainTest {
 		System.out.println("KMeans min cost is: " + sumForKMeans);
 	}
 	
-	private Dataset[] kmeansCluster(List<SimplePoint> pts, int numClusters) {
+	private List<List<SimplePoint>> kmeansCluster(List<SimplePoint> pts, int numClusters) {
 		Dataset pointsSet = new DefaultDataset();
+		List<List<SimplePoint>> clusterOfPoints = new ArrayList<>();
+		
 		for (SimplePoint pt : pts) {
 			Instance curInstance = new DenseInstance(new double[] {pt.xpos, pt.ypos});
 			pointsSet.add(curInstance);
 		}
 		
 		KMeans clusterer = new KMeans(numClusters);
-		return clusterer.cluster(pointsSet);
+		Dataset[] pointsClusters = clusterer.cluster(pointsSet);
+		for (Dataset ds : pointsClusters) {
+			List<SimplePoint> lst = new ArrayList<SimplePoint>();
+			for (Instance ins : ds) {
+				lst.add(new SimplePoint((int) ins.value(0), (int) ins.value(1)));
+			}
+			clusterOfPoints.add(lst);
+		}
+		return clusterOfPoints;
+	}
+	
+	public static void resolveCrossings(List<SimplePoint> routeToBreak, SimplePoint depot, int startIndex, int endIndex) {
+		
+		if (endIndex - startIndex < 3)
+			return;
+		boolean hasNoCrossing = true;
+		do {
+			hasNoCrossing = true;
+			outerloop:
+			for (int i = startIndex + 1; i < endIndex; i++) {
+				for (int j = startIndex - 1; j <= i - 2; j++) {
+					SimplePoint pt1 = routeToBreak.get(i);
+					SimplePoint pt11 = i + 1 >= endIndex ? depot : routeToBreak.get(i + 1);
+					SimplePoint pt2 = j < startIndex ? depot : routeToBreak.get(j);
+					SimplePoint pt22 = routeToBreak.get(j + 1);
+					if (pt11.equals(depot) || pt2.equals(depot))
+						continue;
+					if (isIntersecting(pt1, pt11, pt2, pt22)) {
+						System.out.println("Intersected!!");
+						System.out.println(String.format("Point1: %s, %s", pt1.xpos, pt1.ypos));
+						System.out.println(String.format("Point11: %s, %s", pt11.xpos, pt11.ypos));
+						System.out.println(String.format("Point2: %s, %s", pt2.xpos, pt2.ypos));
+						System.out.println(String.format("Point22: %s, %s", pt22.xpos, pt22.ypos));
+						hasNoCrossing = false;
+						if (i + 1 >= endIndex) {
+							System.out.println("i + 1 is depot");
+							routeToBreak.set(j, pt1);
+							routeToBreak.set(i, pt2);
+						} else if (j < startIndex) {
+							System.out.println("J is depot");
+							routeToBreak.set(i + 1, pt22);
+							routeToBreak.set(j + 1, pt11);
+						} else {
+							SimplePoint temp = pt1;
+							routeToBreak.set(i, pt22);
+							routeToBreak.set(j + 1, temp);
+						}
+						
+						rr.paintAll(new RoutePlan(routeToBreak, new ArrayList<Integer>(), depot), (Graphics2D) rr.getGraphics());
+//						try {
+//							Thread.sleep(3000);
+//						} catch (InterruptedException e) {
+//							// TODO Auto-generated catch block
+//							e.printStackTrace();
+//						}
+						break outerloop;
+					} else {
+						System.out.println("Not Intersected!!");
+						System.out.println(String.format("Point1: %s, %s", pt1.xpos, pt1.ypos));
+						System.out.println(String.format("Point11: %s, %s", pt11.xpos, pt11.ypos));
+						System.out.println(String.format("Point2: %s, %s", pt2.xpos, pt2.ypos));
+						System.out.println(String.format("Point22: %s, %s", pt22.xpos, pt22.ypos));
+					}
+				}
+			}
+		} while (!hasNoCrossing);
+	}
+	
+	public static boolean isIntersecting(SimplePoint pt1, SimplePoint pt11, SimplePoint pt2, SimplePoint pt22) {
+		// y1 = k1*x1 + b1
+		// y2 = k2*x2 + b2
+		Double slope1 = (pt1.xpos == pt11.xpos) ? null : (double) (pt1.ypos - pt11.ypos) / (double) (pt1.xpos - pt11.xpos);
+		Double firstIntercept = slope1 == null ? null : ((double) pt1.ypos - ((double) pt1.xpos) * slope1);
+		Double slope2 = (pt2.xpos == pt22.xpos) ? null : (double) (pt2.ypos - pt22.ypos) / (double) (pt2.xpos - pt22.xpos);
+		Double secondIntercept = slope2 == null ? null : ((double) pt2.ypos - ((double) pt2.xpos) * slope2);
+		if (slope1 == null && slope2 == null)
+			return false;
+		
+		if (slope1 != null && slope2 != null) {
+			if (slope1.equals(slope2))
+				return false;
+			double x = (firstIntercept - secondIntercept) / (slope2 - slope1);
+	    	return ((x >= pt2.xpos && x <= pt22.xpos) || (x <= pt2.xpos && x >= pt22.xpos))
+					&& ((x >= pt1.xpos && x <= pt11.xpos) || (x <= pt1.xpos && x >= pt11.xpos));
+		}
+		
+		if (slope1 == null) {
+			// x1 == x11
+			double x = pt1.xpos;
+			double y = secondIntercept + slope2 * x;
+			return ((x >= pt2.xpos && x <= pt22.xpos) || (x <= pt2.xpos && x >= pt22.xpos))
+					&& ((y >= pt1.ypos && y <= pt11.ypos) || (y <= pt1.ypos && y >= pt11.ypos));
+		}
+		
+		if (slope2 == null) {
+			// x2 == x22
+			double x = pt2.xpos;
+			double y = firstIntercept + slope1 * x;
+			return ((x >= pt1.xpos) && (x <= pt11.xpos) || (x <= pt1.xpos && x >= pt11.xpos))
+					&& ((y >= pt2.ypos && y <= pt22.ypos) || (y <= pt2.ypos && y >= pt22.ypos));
+		}
+		
+		return false;
+//		Double slope1;
+//		if (pt1.xpos == pt11.xpos)
+//			slope1 = null;
+//		else
+//			slope1 = (double) (pt1.ypos - pt11.ypos) / (double) (pt1.xpos - pt11.xpos);
+//		Double slope2;
+//		if (pt2.xpos == pt22.xpos)
+//			slope2 = null;
+//		else
+//			slope2 = (double) (pt2.ypos - pt22.ypos) / (double) (pt2.xpos - pt22.xpos);
+//		
+//		if (slope1 == slope2)
+//			return false;
+//		
+//		if (slope1 == null) {
+//			double intersectionY = pt2.ypos + (pt1.xpos - pt2.xpos) * slope2;
+//			if (pt2.ypos > pt22.ypos)
+//				return intersectionY >= pt22.ypos &&
+//						((intersectionY >= pt1.ypos && intersectionY <= pt11.ypos) || 
+//						(intersectionY <= pt1.ypos && intersectionY >= pt11.ypos));
+//			else if (pt2.ypos == pt22.ypos)
+//				return (pt1.xpos >= pt2.xpos && pt1.xpos <= pt22.xpos) ||
+//						(pt1.xpos <= pt2.xpos && pt1.xpos >= pt22.xpos);
+//			else
+//				return intersectionY <= pt22.ypos &&
+//						((intersectionY >= pt1.ypos && intersectionY <= pt11.ypos) || 
+//						(intersectionY <= pt1.ypos && intersectionY >= pt11.ypos));
+//		}
+//		
+//		if (slope2 == null) {
+//			double intersectionY = pt1.ypos + (pt2.xpos - pt1.xpos) * slope1;
+//			if (pt1.ypos > pt11.ypos)
+//				return intersectionY >= pt11.ypos &&
+//						((intersectionY >= pt2.ypos && intersectionY <= pt22.ypos) || 
+//						(intersectionY <= pt2.ypos && intersectionY >= pt22.ypos));
+//			else if (pt1.ypos == pt11.ypos)
+//				return (pt2.xpos >= pt1.xpos && pt2.xpos <= pt11.xpos) ||
+//						(pt2.xpos <= pt1.xpos && pt2.xpos >= pt11.xpos);
+//			else
+//				return intersectionY <= pt11.ypos &&
+//					((intersectionY >= pt2.ypos && intersectionY <= pt22.ypos) || 
+//					(intersectionY <= pt2.ypos && intersectionY >= pt22.ypos));
+//		}
+//		
+//		double Y = (double) (pt1.ypos - pt2.ypos + slope1 * (pt2.xpos - pt1.xpos)) / (slope2 - slope1);
+//		double X = Y + pt2.xpos - pt1.xpos;
+//		System.out.println(Y);
+//		System.out.println(X);
+//		
+//		return (pt1.xpos > pt11.xpos ? (X + pt1.xpos) >= pt11.xpos : (X + pt1.xpos) <= pt11.xpos)
+//				&& (pt2.xpos > pt22.xpos ? (Y + pt2.xpos) >= pt22.xpos : (Y + pt2.xpos) <= pt22.xpos);
 	}
 	
 	private Map<Integer, List<SimplePoint>> partitionPoints(List<SimplePoint> pts, SimplePoint depotLocation, int gradient) {
@@ -442,8 +599,30 @@ public class MainTest {
 			
 			rr.paintAll(optimalPlan, (Graphics2D) rr.getGraphics());
 		}
-		
+//		resolveAllCrossings(optimalPlan);
+
+//		rr.paintAll(optimalPlan, (Graphics2D) rr.getGraphics());
+//		System.out.println("Cost after doing resolving crossings: " + optimalPlan.getTotalCost());
+//		Thread.sleep(10000);
 		return optimalPlan;
+	}
+	
+	public static void resolveAllCrossings(RoutePlan optimalPlan) {
+		System.out.println("working hard!!");
+		int lastBreak = 0;
+		for (int breakIndex = 0; breakIndex < optimalPlan.breaks.size(); breakIndex++) {
+			resolveCrossings(optimalPlan.points, optimalPlan.depotLocation, 
+					lastBreak, optimalPlan.breaks.get(breakIndex));
+			lastBreak = optimalPlan.breaks.get(breakIndex);
+		}
+		
+		if (!optimalPlan.breaks.isEmpty()) {
+			resolveCrossings(optimalPlan.points, optimalPlan.depotLocation, 
+					optimalPlan.breaks.get(optimalPlan.breaks.size() - 1) + 1, 
+					optimalPlan.points.size() - 1);
+		}
+		
+		System.out.println("Done!!");
 	}
 	
 	public void loadPointsFromFile(String filename) throws IOException {
@@ -543,7 +722,7 @@ public class MainTest {
 				+ Math.pow(pointA.ypos - pointB.ypos, 2)));
 	}
 	
-	public class RoutePlan {
+	public static class RoutePlan {
 		private List<SimplePoint> points = new ArrayList<SimplePoint>();
 		private List<Integer> breaks = new ArrayList<Integer>();
 		private SimplePoint depotLocation;
@@ -708,7 +887,6 @@ public class MainTest {
 		public int hashCode() {
 			final int prime = 31;
 			int result = 1;
-			result = prime * result + getOuterType().hashCode();
 			result = prime * result + xpos;
 			result = prime * result + ypos;
 			return result;
@@ -723,18 +901,11 @@ public class MainTest {
 			if (getClass() != obj.getClass())
 				return false;
 			SimplePoint other = (SimplePoint) obj;
-			if (!getOuterType().equals(other.getOuterType()))
-				return false;
 			if (xpos != other.xpos)
 				return false;
 			if (ypos != other.ypos)
 				return false;
 			return true;
 		}
-
-		private MainTest getOuterType() {
-			return MainTest.this;
-		}
-		
 	}
 }
