@@ -11,7 +11,7 @@
   "max_tour": -1,
   "min_tour": -1,
   "num_cars": 5,
-  "num_destinations": 200,
+  "num_destinations": 1000,
   "points_file_name": "sample.txt",
   "points_suffix": "\\Pointset",
   "population_size": 1024,

@@ -110,14 +110,9 @@ public class MainTest {
 	
 	public void doCalc(int numIterations) throws InterruptedException {
 		populateLocations();
-		Map<Integer, List<SimplePoint>> partitions = partitionPoints(destLocations, depotLocation, 1000);
 
 		List<List<SimplePoint>> clusterOfPoints = kmeansCluster(destLocations, 
 				(int) Math.ceil((double) destLocations.size() / (double) 15));
-
-		for (Integer groupKey : partitions.keySet()) {
-			System.out.println(String.format("Group Number: %s, Size: %s", groupKey, partitions.get(groupKey).size()));
-		}
 		RoutePlan rp = new RoutePlan();
 		List<Integer> optimalBreaks = new ArrayList<Integer>();
 		long minCost = 1000000000000000000L;
@@ -140,38 +135,25 @@ public class MainTest {
 		initialMinCost = minCost;
 		printRoutes(rp);
 		
-		List<RoutePlan> optimalPlansForPartitions = new ArrayList<RoutePlan>();
-		System.out.println("In total, we have " + partitions.keySet().size() + " partitions.");
-//		for (Integer key : partitions.keySet()) {
-//			List<SimplePoint> singlePart = partitions.get(key);
-//			RoutePlan optPlan = doGA(populationSize, numGAIterations, (int) Math.ceil(singlePart.size() / 15), singlePart, false);
-//			optimalPlansForPartitions.add(optPlan);
-//		}
-		
 		// K-Means performances
 		List<RoutePlan> optimalPlansKMeans = new ArrayList<RoutePlan>();
 		for (List<SimplePoint> llst : clusterOfPoints) {
-			RoutePlan optPlan = doGA(populationSize, 1000, (int) Math.ceil(llst.size() / 15), llst, false);
+			RoutePlan optPlan = doGA(populationSize, 1000, (int) Math.ceil(llst.size() / 15), llst, false, 1);
 			optimalPlansKMeans.add(optPlan);
+			System.out.println("KMeans: This group's cost is: " + optPlan.getTotalCost());
 		}
 	
 		int sumForKMeans = 0;
 		for (RoutePlan rPlan : optimalPlansKMeans) {
 			sumForKMeans += rPlan.getTotalCost();
 		}
-		
-		int sumForPlans = 0;
-		for (RoutePlan rPlan : optimalPlansForPartitions) {
-			sumForPlans += rPlan.getTotalCost();
-		}
 
 		RoutePlan optPlan = doGA(populationSize, 1000, (int) Math.ceil((double) destLocations.size() / (double) 15), 
-				destLocations, true);
+				destLocations, true, numCars);
 //		for (int breaksLen = 0; breaksLen < optPlan.breaks.size(); breaksLen++) {
 //			System.out.println("Breaks value is: " + optPlan.breaks.get(breaksLen));
 //		}
-		System.out.println("Initial min cost is: " + initialMinCost);
-		System.out.println("Partitioned min cost is: " + sumForPlans);
+		System.out.println("Ungrouped min cost is: " + optPlan.getTotalCost());
 		System.out.println("KMeans min cost is: " + sumForKMeans);
 	}
 	
@@ -233,7 +215,7 @@ public class MainTest {
 							routeToBreak.set(j + 1, temp);
 						}
 						
-						rr.paintAll(new RoutePlan(routeToBreak, new ArrayList<Integer>(), depot), (Graphics2D) rr.getGraphics());
+						rr.paintAll(new RoutePlan(routeToBreak, new ArrayList<Integer>(), depot, 1), (Graphics2D) rr.getGraphics());
 //						try {
 //							Thread.sleep(3000);
 //						} catch (InterruptedException e) {
@@ -358,7 +340,7 @@ public class MainTest {
 	}
 	
 	private RoutePlan doGA(final int populationSize, int numIterations, int carCount, List<SimplePoint> shipmentPoints,
-			boolean display)
+			boolean display, final int numCarsAllocated)
 			throws InterruptedException {
 		// Set initial capacity to population size in order to do less resize
 		final List<RoutePlan> population = new ArrayList<RoutePlan>(populationSize);
@@ -368,7 +350,7 @@ public class MainTest {
 
 		// First, initialize the population.
 		for (int i = 0; i < populationSize; i++) {
-			RoutePlan candidate = new RoutePlan();
+			RoutePlan candidate = new RoutePlan(shipmentPoints, new ArrayList<Integer>(), depotLocation, numCarsAllocated);
 			candidate.load();
 			population.add(candidate);
 		}
@@ -413,7 +395,7 @@ public class MainTest {
 							tempSPForFlipping.set(firstInsertionPoint + 
 									secondInsertionPoint - index, curPopSP.get(index));
 						}
-						tempPopulation.add(new RoutePlan(tempSPForFlipping, tempBreaksForFlipping, depotLocation));
+						tempPopulation.add(new RoutePlan(tempSPForFlipping, tempBreaksForFlipping, depotLocation, numCarsAllocated));
 					}
 				}
 			});
@@ -434,7 +416,7 @@ public class MainTest {
 						tempBreaksForSwapping.addAll(curBreak);
 						tempSPForSwapping.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
 						tempSPForSwapping.set(secondInsertionPoint, curPopSP.get(firstInsertionPoint));
-						tempPopulation.add(new RoutePlan(tempSPForSwapping, tempBreaksForSwapping, depotLocation));
+						tempPopulation.add(new RoutePlan(tempSPForSwapping, tempBreaksForSwapping, depotLocation, numCarsAllocated));
 					}
 				}
 			});
@@ -457,7 +439,7 @@ public class MainTest {
 							tempSPForSliding.set(index, curPopSP.get(index - 1));
 						}
 						tempSPForSliding.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
-						tempPopulation.add(new RoutePlan(tempSPForSliding, tempBreaksForSliding, depotLocation));
+						tempPopulation.add(new RoutePlan(tempSPForSliding, tempBreaksForSliding, depotLocation, numCarsAllocated));
 					}
 				}
 			});
@@ -471,7 +453,7 @@ public class MainTest {
 						// Modify breaks
 						ArrayList<SimplePoint> tempSPForMB = new ArrayList<SimplePoint>();
 						tempSPForMB.addAll(curPopSP);
-						RoutePlan MBCandidate = new RoutePlan(tempSPForMB, new ArrayList<Integer>(), depotLocation);
+						RoutePlan MBCandidate = new RoutePlan(tempSPForMB, new ArrayList<Integer>(), depotLocation, numCarsAllocated);
 						MBCandidate.randomBreaks();
 						tempPopulation.add(MBCandidate);
 					}
@@ -496,7 +478,7 @@ public class MainTest {
 							tempSPForFlipping.set(firstInsertionPoint + 
 									secondInsertionPoint - index, curPopSP.get(index));
 						}
-						RoutePlan MBCandidate = new RoutePlan(tempSPForFlipping, tempBreaksForFlipping, depotLocation);
+						RoutePlan MBCandidate = new RoutePlan(tempSPForFlipping, tempBreaksForFlipping, depotLocation, numCarsAllocated);
 						MBCandidate.randomBreaks();
 						tempPopulation.add(MBCandidate);
 					}
@@ -519,7 +501,7 @@ public class MainTest {
 						tempBreaksForSwapping.addAll(curBreak);
 						tempSPForSwapping.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
 						tempSPForSwapping.set(secondInsertionPoint, curPopSP.get(firstInsertionPoint));
-						RoutePlan MBCandidate = new RoutePlan(tempSPForSwapping, tempBreaksForSwapping, depotLocation);
+						RoutePlan MBCandidate = new RoutePlan(tempSPForSwapping, tempBreaksForSwapping, depotLocation, numCarsAllocated);
 						MBCandidate.randomBreaks();
 						tempPopulation.add(MBCandidate);
 					}
@@ -542,7 +524,7 @@ public class MainTest {
 							tempSPForSliding.set(index, curPopSP.get(index - 1));
 						}
 						tempSPForSliding.set(firstInsertionPoint, curPopSP.get(secondInsertionPoint));
-						RoutePlan MBCandidate = new RoutePlan(tempSPForSliding, tempBreaksForSliding, depotLocation);
+						RoutePlan MBCandidate = new RoutePlan(tempSPForSliding, tempBreaksForSliding, depotLocation, numCarsAllocated);
 						MBCandidate.randomBreaks();
 						tempPopulation.add(MBCandidate);
 					}
@@ -726,13 +708,18 @@ public class MainTest {
 		private List<SimplePoint> points = new ArrayList<SimplePoint>();
 		private List<Integer> breaks = new ArrayList<Integer>();
 		private SimplePoint depotLocation;
+		private int numCars;
 		
-		public RoutePlan() { this.depotLocation = MainTest.depotLocation; }
+		public RoutePlan() { 
+			this.depotLocation = MainTest.depotLocation;
+			this.points = destLocations;
+		}
 
-		public RoutePlan(List<SimplePoint> points, List<Integer> breaks, SimplePoint depotLocation) {
+		public RoutePlan(List<SimplePoint> points, List<Integer> breaks, SimplePoint depotLocation, int numCars) {
 			this.depotLocation = depotLocation;
 			this.points = points;
 			this.breaks = breaks;
+			this.numCars = numCars;
 		}
 		
 		public int getTotalCost() {
@@ -770,7 +757,6 @@ public class MainTest {
 		}
 		
 		private void load() {
-			points.clear();
 			breaks.clear();
 			while (breaks.size() < numCars - 1) {
 				int randBreak = 1 + new Random().nextInt(numDestinations - 1);
@@ -778,8 +764,7 @@ public class MainTest {
 					breaks.add(randBreak);
 				}
 			}
-			
-			points.addAll(destLocations);
+
 			Collections.shuffle(points);
 		}
 		
